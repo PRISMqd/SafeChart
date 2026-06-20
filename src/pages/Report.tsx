@@ -32,6 +32,7 @@ export default function Report() {
       const clArr = cl ? JSON.parse(cl) : [];
       const report = translateReport(ft, cls, escArr, clArr);
       setEditedTranslated(report);
+      localStorage.setItem('sc_translated', report);
     }
   }, []);
 
