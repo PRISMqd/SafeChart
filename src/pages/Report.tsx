@@ -25,15 +25,13 @@ export default function Report() {
     if (esc) setEscalations(JSON.parse(esc));
     if (cl) setChecklistItems(JSON.parse(cl));
 
-    if (ft.trim().length > 5) {
-      const cls = classifyText(ft);
-      setClassification(cls);
-      const escArr = esc ? JSON.parse(esc) : [];
-      const clArr = cl ? JSON.parse(cl) : [];
-      const report = translateReport(ft, cls, escArr, clArr);
-      setEditedTranslated(report);
-      localStorage.setItem('sc_translated', report);
-    }
+    const escArr = esc ? JSON.parse(esc) : [];
+    const clArr = cl ? JSON.parse(cl) : [];
+    const cls = classifyText(ft);
+    setClassification(cls);
+    const report = translateReport(ft, cls, escArr, clArr);
+    setEditedTranslated(report);
+    localStorage.setItem('sc_translated', report);
   }, []);
 
   const handleDownloadPDF = () => {

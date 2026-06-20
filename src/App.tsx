@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { HashRouter, Routes, Route } from 'react-router-dom';
 import Layout from './components/layout/Layout';
 import Home from './pages/Home';
 import Module1_CSAT from './pages/Module1_CSAT';
@@ -10,7 +10,7 @@ import Glossary from './pages/Glossary';
 
 export default function App() {
   return (
-    <BrowserRouter basename="/SafeChart">
+    <HashRouter>
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<Home />} />
@@ -22,6 +22,6 @@ export default function App() {
           <Route path="glossary" element={<Glossary />} />
         </Route>
       </Routes>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
