@@ -7,6 +7,9 @@ const NAV_LINKS = [
   { to: '/module1', label: 'Acuity' },
   { to: '/module2', label: 'Checklist' },
   { to: '/module3', label: 'Escalation' },
+  { to: '/module4', label: 'Residual Risk' },
+  { to: '/module5', label: 'Sitter' },
+  { to: '/module6', label: 'ARI' },
   { to: '/report', label: 'Report' },
   { to: '/module8', label: 'Submit' },
   { to: '/glossary', label: 'Glossary' },
@@ -30,12 +33,12 @@ export default function Header() {
         </Link>
 
         {/* Desktop nav */}
-        <nav className="hidden md:flex gap-1 items-center">
+        <nav className="hidden md:flex gap-1 items-center flex-wrap justify-end">
           {NAV_LINKS.map(link => (
             <Link
               key={link.to}
               to={link.to}
-              className={`px-3 py-1.5 rounded text-sm font-body transition-colors ${
+              className={`px-2.5 py-1.5 rounded text-xs font-body transition-colors ${
                 isActive(link.to)
                   ? 'text-white bg-white bg-opacity-15'
                   : 'text-gray-300 hover:text-white hover:bg-white hover:bg-opacity-10'

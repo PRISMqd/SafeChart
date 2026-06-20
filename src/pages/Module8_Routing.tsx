@@ -47,6 +47,13 @@ const DESTINATIONS = [
     citations: ['OSHA_GDC', 'WHISTLEBLOWER'],
   },
   {
+    id: 'hhs',
+    label: 'HHS OIG Whistleblower',
+    icon: '🛡️',
+    description: 'Report fraud, abuse, or patient rights violations to the HHS Office of Inspector General. Covers federal healthcare fraud and patient safety violations in federally funded facilities.',
+    citations: ['WHISTLEBLOWER'],
+  },
+  {
     id: 'prismqd',
     label: 'PRISMqd Dataset',
     icon: '🔬',
@@ -365,6 +372,22 @@ export default function Module8_Routing() {
                     )}
                   </div>
 
+                  {/* State-specific law notes */}
+                  {bon.stateCode === 'CA' && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800 space-y-1">
+                      <p className="font-semibold">California — SB 553 (Workplace Violence Prevention, 2023)</p>
+                      <p>California SB 553 requires hospitals to maintain workplace violence prevention plans. Unsafe staffing that creates a workplace violence risk may be cited under this statute. Include SB 553 context in your constituent letter to California legislators.</p>
+                      <a href="https://leginfo.legislature.ca.gov/faces/billNavClient.xhtml?bill_id=202320240SB553" target="_blank" rel="noreferrer" className="text-amber-700 underline font-medium block">SB 553 Legislative Text →</a>
+                    </div>
+                  )}
+                  {bon.stateCode === 'NY' && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800 space-y-1">
+                      <p className="font-semibold">New York — S5294-B (Safe Staffing for Quality Care Act)</p>
+                      <p>S5294-B establishes mandatory nurse-to-patient staffing ratios in New York hospitals. Cite this legislation in your constituent letter to NY legislators to connect your documentation to the pending legislative framework.</p>
+                      <a href="https://www.nysenate.gov/legislation/bills/2023/S5294" target="_blank" rel="noreferrer" className="text-amber-700 underline font-medium block">S5294-B Legislative Text →</a>
+                    </div>
+                  )}
+
                   <AnonymityStatement destination="legislature" />
                 </div>
               ) : (
@@ -415,6 +438,58 @@ export default function Module8_Routing() {
             </Card>
           )}
 
+          {/* HHS OIG */}
+          {selected.has('hhs') && (
+            <Card>
+              <h2 className="font-heading font-bold text-navy text-lg mb-4">🛡️ HHS Office of Inspector General — Whistleblower Complaint</h2>
+              <div className="space-y-4">
+                <div className="bg-warm rounded-lg p-4 text-sm space-y-1">
+                  <p className="font-semibold text-navy">U.S. Department of Health & Human Services — Office of Inspector General</p>
+                  <p className="text-gray-700">OIG Hotline: <span className="font-medium">1-800-HHS-TIPS (1-800-447-8477)</span></p>
+                  <a href="https://oig.hhs.gov/fraud/report-fraud/" target="_blank" rel="noreferrer" className="text-teal underline font-semibold block">File HHS OIG Complaint Online →</a>
+                  <a href="https://oig.hhs.gov/compliance/patient-safety-resources/" target="_blank" rel="noreferrer" className="text-teal underline block">HHS OIG Patient Safety Resources →</a>
+                </div>
+
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-800 space-y-1">
+                  <p className="font-semibold">When to use HHS OIG</p>
+                  <p>HHS OIG investigates fraud, waste, and abuse in federally funded healthcare programs (Medicare, Medicaid). File here if your facility's unsafe conditions involve: billing fraud related to inadequate services delivered, improper financial relationships affecting care, or patient rights violations in a federally certified facility.</p>
+                  <p className="mt-2 font-medium">Retaliation Protection: Section 1128A(h) of the Social Security Act protects individuals who report fraud or abuse to OIG.</p>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Your Documentation (for reference when completing OIG form)</p>
+                    <div className="flex items-center gap-2">
+                      {data.freeText && <CopyButton text={data.freeText} label="Copy Narrative" />}
+                    </div>
+                  </div>
+                  {data.freeText && (
+                    <textarea
+                      readOnly
+                      value={data.freeText}
+                      rows={6}
+                      className="w-full text-xs text-gray-800 bg-gray-50 border border-gray-200 rounded-lg p-3 font-mono resize-y focus:outline-none"
+                    />
+                  )}
+                </div>
+
+                <div className="flex flex-wrap gap-3">
+                  <a
+                    href="https://oig.hhs.gov/fraud/report-fraud/"
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={() => logAudit('HHS_FORM_OPENED')}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded border-2 border-navy text-navy text-sm font-semibold hover:bg-warm"
+                  >
+                    Open HHS OIG Complaint Form →
+                  </a>
+                </div>
+
+                <AnonymityStatement destination="pdf" />
+              </div>
+            </Card>
+          )}
+
           {/* OSHA */}
           {selected.has('osha') && (
             <Card>
@@ -430,6 +505,14 @@ export default function Module8_Routing() {
                 <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2">
                   Complete the employer/facility name and address fields in the generated text below before submitting. These fields are marked with [BRACKETS].
                 </p>
+
+                {/* OSHA 300/301 note */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-800 space-y-1">
+                  <p className="font-semibold">OSHA Recordkeeping — 300 Log & 301 Incident Report</p>
+                  <p>If this incident resulted in a work-related injury or illness (physical harm to a nurse, needle stick, assault, musculoskeletal injury from inadequate staffing), the employer may have a legal obligation to record it on the OSHA 300 Log and complete an OSHA 301 Incident Report within 7 days.</p>
+                  <p className="font-medium mt-1">If the employer has failed to record a work-related injury or illness, this failure may itself be an OSHA violation. Include this in your OSHA complaint if applicable.</p>
+                  <a href="https://www.osha.gov/recordkeeping" target="_blank" rel="noreferrer" className="text-blue-700 underline block">OSHA Recordkeeping Requirements →</a>
+                </div>
 
                 <GeneratedTextBlock text={oshaText} label="Pre-formatted OSHA GDC Complaint — copy into the OSHA online complaint form" />
 

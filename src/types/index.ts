@@ -78,6 +78,97 @@ export interface QuickEntryRecord {
   state: string;
 }
 
+// ─── Module 4: Residual Risk ──────────────────────────────────────────────────
+
+export type ResidualRiskLevel = 'low' | 'moderate' | 'high' | 'unresolved';
+
+export interface ResidualRiskRecord {
+  completedAt: string;
+  outstandingConcerns: string;
+  patientsAffected: string;
+  conditionStartTime: string;
+  interimSafeguards: string;
+  anticipatedResolution: string;
+  residualRiskLevel: ResidualRiskLevel;
+}
+
+// ─── Module 5: Sitter/Safety Attendant ───────────────────────────────────────
+
+export const SITTER_NEEDS = [
+  'Fall risk',
+  'Elopement risk',
+  'Behavioral / agitation',
+  'Post-procedure monitoring',
+  'Suicidal ideation / self-harm risk',
+  'Altered mental status',
+  'Other',
+] as const;
+export type SitterNeed = typeof SITTER_NEEDS[number];
+
+export interface SitterRecord {
+  completedAt: string;
+  monitoringNeeds: SitterNeed[];
+  monitoringNeedOther: string;
+  sitterAssignedAtStart: boolean | null;
+  sitterRemovedOrDenied: boolean | null;
+  removalTime: string;
+  removedByRole: string;
+  reasonGiven: string;
+  timeWithoutCoverage: string;
+  nurseObjection: string;
+  patientOutcome: string;
+}
+
+// ─── Module 6: ARI Self-Assessment ───────────────────────────────────────────
+
+export interface ARIDomain {
+  domain: string;
+  score: 0 | 1 | 2 | undefined;
+  label0: string;
+  label1: string;
+  label2: string;
+}
+
+export type ARILevel = 'low' | 'moderate' | 'high';
+
+export interface ARIRecord {
+  completedAt: string;
+  domains: { domain: string; score: 0 | 1 | 2 | undefined }[];
+  additionalContext: string;
+  ariLevel: ARILevel;
+}
+
+// ─── Documentation Enhancements ──────────────────────────────────────────────
+
+export interface InternalReportEntry {
+  level: string;
+  reportedAt: string;
+  response: 'acknowledged' | 'deferred' | 'denied' | 'no_response' | '';
+  details: string;
+}
+
+export const RETALIATION_INDICATORS = [
+  'Schedule change within 30 days of report',
+  'Disciplinary action initiated after report',
+  'Performance review initiated after report',
+  'Hostile or retaliatory communication from management',
+  'Removed from preferred unit or shift assignment',
+  'Informal pressure not to document or report',
+  'Exclusion from meetings or decisions after report',
+  'Threat of termination or adverse action',
+  'Negative patient complaint filed after report',
+  'Other adverse employment action',
+] as const;
+export type RetaliationIndicator = typeof RETALIATION_INDICATORS[number];
+
+export interface RetaliationRecord {
+  flaggedAt: string;
+  indicators: RetaliationIndicator[];
+  details: string;
+}
+
+// ─── ShiftRecord ──────────────────────────────────────────────────────────────
+
 export interface ShiftRecord {
   id: string;
   timestamp: string;
