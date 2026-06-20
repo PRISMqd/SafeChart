@@ -10,7 +10,7 @@ import Glossary from './pages/Glossary';
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/SafeChart">
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<Home />} />
