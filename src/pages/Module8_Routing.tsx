@@ -78,7 +78,7 @@ export default function Module8_Routing() {
         <p className="text-gray-600 mt-1 font-body">Select your submission destinations. Your documentation is only sent when you choose to send it.</p>
       </div>
 
-      {/* State selector — global, applies to all destinations */}
+      {/* Global state selector */}
       <Card>
         <label className="text-sm font-semibold text-gray-700 block mb-2">Select Your State</label>
         <select
@@ -91,9 +91,6 @@ export default function Module8_Routing() {
             <option key={s.stateCode} value={s.stateCode}>{s.state}</option>
           ))}
         </select>
-        {selectedState && !bon && (
-          <p className="text-xs text-gray-400 mt-1">State not found in registry.</p>
-        )}
       </Card>
 
       {/* Destination cards */}
@@ -129,7 +126,6 @@ export default function Module8_Routing() {
                 <p className="text-xs text-gray-500 mt-2 font-medium">{dest.disabledNote}</p>
               )}
 
-              {/* Citations with full description text */}
               {dest.citations.length > 0 && isSelected && (
                 <div className="mt-3 pt-3 border-t border-gray-200 space-y-3">
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Applicable Authority</p>
@@ -151,37 +147,49 @@ export default function Module8_Routing() {
         })}
       </div>
 
-      {/* State-specific contact info per selected destination */}
-      {bon && selected.size > 0 && (
+      {/* Per-destination contact panels */}
+      {selected.size > 0 && (
         <div className="space-y-4">
+
           {selected.has('bon') && (
             <Card>
-              <h2 className="font-heading font-bold text-navy text-lg mb-3">🏛️ Board of Nursing — {bon.state}</h2>
-              <div className="bg-warm rounded-lg p-4 space-y-2">
-                <p className="font-semibold text-navy">{bon.boardName}</p>
-                <p className="text-sm text-gray-700">Phone: <span className="font-medium">{bon.phone}</span></p>
-                {bon.email && <p className="text-sm text-gray-700">Email: <a href={`mailto:${bon.email}`} className="text-teal underline">{bon.email}</a></p>}
-                <a href={bon.website} target="_blank" rel="noreferrer" className="text-teal text-sm underline block">Board Website →</a>
-                <a href={bon.complaintUrl} target="_blank" rel="noreferrer" className="text-teal text-sm underline block font-semibold">File a Complaint →</a>
-                <div className="mt-3 pt-3 border-t border-gray-200">
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Applicable Statutory Authority</p>
-                  <p className="text-xs text-gray-700">{bon.npaNotes}</p>
+              <h2 className="font-heading font-bold text-navy text-lg mb-3">🏛️ State Board of Nursing{bon ? ` — ${bon.state}` : ''}</h2>
+              {bon ? (
+                <div className="bg-warm rounded-lg p-4 space-y-2">
+                  <p className="font-semibold text-navy">{bon.boardName}</p>
+                  <p className="text-sm text-gray-700">Phone: <span className="font-medium">{bon.phone}</span></p>
+                  {bon.email && <p className="text-sm text-gray-700">Email: <a href={`mailto:${bon.email}`} className="text-teal underline">{bon.email}</a></p>}
+                  <a href={bon.website} target="_blank" rel="noreferrer" className="text-teal text-sm underline block">Board Website →</a>
+                  <a href={bon.complaintUrl} target="_blank" rel="noreferrer" className="text-teal text-sm underline block font-semibold">File a Complaint →</a>
+                  <div className="mt-3 pt-3 border-t border-gray-200">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Applicable Statutory Authority</p>
+                    <p className="text-xs text-gray-700">{bon.npaNotes}</p>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <p className="text-sm text-gray-500">Select your state above to see your Board of Nursing contact information.</p>
+              )}
             </Card>
           )}
 
           {selected.has('legislature') && (
             <Card>
-              <h2 className="font-heading font-bold text-navy text-lg mb-3">📜 State Legislature — {bon.state}</h2>
-              <div className="bg-warm rounded-lg p-4 space-y-2">
-                <p className="text-sm text-gray-700">Contact your state legislators directly as a constituent. Constituent documentation of unsafe staffing conditions informs legislative action.</p>
-                <a href={bon.legislatureUrl} target="_blank" rel="noreferrer" className="text-teal text-sm underline block font-semibold">Find Your Legislators →</a>
-                <div className="mt-3 pt-3 border-t border-gray-200">
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Applicable Authority</p>
-                  <p className="text-xs text-gray-700">29 U.S.C. § 157 (NLRA Section 7) — Protects nurses' rights to engage in concerted activity for mutual aid and protection, including collective advocacy for safe staffing legislation.</p>
+              <h2 className="font-heading font-bold text-navy text-lg mb-3">📜 State Legislature{bon ? ` — ${bon.state}` : ''}</h2>
+              {bon ? (
+                <div className="bg-warm rounded-lg p-4 space-y-2">
+                  <p className="text-sm text-gray-700">Contact your state legislators directly as a constituent. Constituent documentation of unsafe staffing conditions informs legislative action on nurse staffing ratios.</p>
+                  <a href={bon.legislatureUrl} target="_blank" rel="noreferrer" className="text-teal text-sm underline block font-semibold">Find Your {bon.state} Legislators →</a>
+                  <div className="mt-3 pt-3 border-t border-gray-200">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Applicable Authority</p>
+                    <p className="text-xs text-gray-700">29 U.S.C. § 157 (NLRA Section 7) — Protects nurses' rights to engage in concerted activity for mutual aid and protection, including collective advocacy for safe staffing legislation.</p>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="bg-warm rounded-lg p-4">
+                  <p className="text-sm text-gray-700 mb-2">Contact your state legislators as a constituent regarding unsafe nurse staffing conditions.</p>
+                  <p className="text-sm text-gray-500">Select your state above to find your legislators.</p>
+                </div>
+              )}
             </Card>
           )}
 
@@ -189,13 +197,13 @@ export default function Module8_Routing() {
             <Card>
               <h2 className="font-heading font-bold text-navy text-lg mb-3">🏥 CMS Complaint</h2>
               <div className="bg-warm rounded-lg p-4 space-y-2">
-                <p className="text-sm text-gray-700">CMS complaints regarding hospital Conditions of Participation are filed through the CMS hotline or your state survey agency. CMS investigates facilities receiving Medicare and Medicaid funding.</p>
-                <a href="https://www.medicare.gov/care-compare/" target="_blank" rel="noreferrer" className="text-teal text-sm underline block">CMS Care Compare (facility lookup) →</a>
-                <a href="https://www.cms.gov/Medicare/Provider-Enrollment-and-Certification/CertificationandComplianc/Hospitals" target="_blank" rel="noreferrer" className="text-teal text-sm underline block font-semibold">CMS Hospital Complaints →</a>
-                <p className="text-sm text-gray-700 pt-2">CMS Hotline: <span className="font-medium">1-800-MEDICARE (1-800-633-4227)</span></p>
+                <p className="text-sm text-gray-700">CMS complaints regarding hospital Conditions of Participation are filed through the CMS hotline or your state survey agency. CMS investigates all facilities receiving Medicare and Medicaid funding.</p>
+                <a href="https://www.medicare.gov/care-compare/" target="_blank" rel="noreferrer" className="text-teal text-sm underline block">CMS Care Compare — facility lookup →</a>
+                <a href="https://www.cms.gov/Medicare/Provider-Enrollment-and-Certification/CertificationandComplianc/Hospitals" target="_blank" rel="noreferrer" className="text-teal text-sm underline block font-semibold">File CMS Hospital Complaint →</a>
+                <p className="text-sm text-gray-700 pt-1">CMS Hotline: <span className="font-medium">1-800-MEDICARE (1-800-633-4227)</span></p>
                 <div className="mt-3 pt-3 border-t border-gray-200">
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Applicable Authority</p>
-                  <p className="text-xs text-gray-700">42 CFR § 482 — Medicare Conditions of Participation establish staffing adequacy requirements for hospitals, including nursing services standards under § 482.23. Facilities violating CoP requirements risk loss of Medicare/Medicaid certification.</p>
+                  <p className="text-xs text-gray-700">42 CFR § 482 (CMS Conditions of Participation) — Establishes staffing adequacy requirements for hospitals participating in Medicare/Medicaid, including nursing services standards under § 482.23. Facilities violating CoP requirements risk loss of Medicare/Medicaid certification. 42 U.S.C. § 1395dd (EMTALA) — Requires hospitals to provide stabilizing treatment in emergencies regardless of staffing conditions.</p>
                 </div>
               </div>
             </Card>
@@ -210,33 +218,13 @@ export default function Module8_Routing() {
                 <p className="text-sm text-gray-700">OSHA Hotline: <span className="font-medium">1-800-321-OSHA (1-800-321-6742)</span></p>
                 <div className="mt-3 pt-3 border-t border-gray-200">
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Applicable Authority</p>
-                  <p className="text-xs text-gray-700">29 U.S.C. § 654(a)(1) — OSHA General Duty Clause requires employers to furnish a workplace free from recognized hazards that are causing or are likely to cause death or serious physical harm. Unsafe nurse staffing ratios are a recognized hazard. 29 CFR Part 1977 protects employees from retaliation for filing OSHA complaints.</p>
+                  <p className="text-xs text-gray-700">29 U.S.C. § 654(a)(1) (OSHA General Duty Clause) — Requires employers to furnish a workplace free from recognized hazards that are causing or are likely to cause death or serious physical harm. Unsafe nurse staffing ratios constitute a recognized hazard under this clause. 29 CFR Part 1977 (OSHA Whistleblower Protection Program) — Protects healthcare workers from retaliation for reporting unsafe working conditions or patient safety concerns to OSHA.</p>
                 </div>
               </div>
             </Card>
           )}
-        </div>
-      )}
 
-      {/* Show federal links for selected destinations even without state selection */}
-      {!bon && selected.size > 0 && (
-        <Card>
-          <p className="text-sm text-gray-600">Select your state above to see direct contact information for each reporting destination.</p>
-          {selected.has('cms') && (
-            <div className="mt-3 pt-3 border-t border-gray-100">
-              <p className="text-sm font-semibold text-navy mb-1">CMS (Federal)</p>
-              <a href="https://www.cms.gov/Medicare/Provider-Enrollment-and-Certification/CertificationandComplianc/Hospitals" target="_blank" rel="noreferrer" className="text-teal text-sm underline block">File CMS Hospital Complaint →</a>
-              <p className="text-sm text-gray-600 mt-1">Hotline: 1-800-633-4227</p>
-            </div>
-          )}
-          {selected.has('osha') && (
-            <div className="mt-3 pt-3 border-t border-gray-100">
-              <p className="text-sm font-semibold text-navy mb-1">OSHA (Federal)</p>
-              <a href="https://www.osha.gov/workers/file-complaint" target="_blank" rel="noreferrer" className="text-teal text-sm underline block">File OSHA Complaint Online →</a>
-              <p className="text-sm text-gray-600 mt-1">Hotline: 1-800-321-6742</p>
-            </div>
-          )}
-        </Card>
+        </div>
       )}
 
       <Card>
