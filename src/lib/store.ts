@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import type { ShiftRecord, CSATScore, EscalationEntry } from '../types';
+import type { ShiftRecord, CSATScore, EscalationRecord } from '../types';
 
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -15,7 +15,6 @@ function createEmptyRecord(): ShiftRecord {
     state: '',
     freeText: '',
     csatScores: [],
-    showChargeRN: false,
     checklistItems: [],
     escalations: [],
   };
@@ -61,4 +60,4 @@ export function useShiftRecord(): [ShiftRecord, (partial: Partial<ShiftRecord>) 
   return [store.getRecord(), store.update.bind(store)];
 }
 
-export type { ShiftRecord, CSATScore, EscalationEntry };
+export type { ShiftRecord, CSATScore, EscalationRecord };

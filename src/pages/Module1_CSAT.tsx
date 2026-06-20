@@ -1,199 +1,131 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Layout } from '../components/layout/Layout';
-import { Card } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
-import { Badge } from '../components/ui/Badge';
-import { csatDomains, evaluateCSATFlags } from '../lib/csatScoring';
-import { useShiftRecord } from '../lib/store';
-import type { CSATScore, CSATDomainScore } from '../types';
+import Card from '../components/ui/Card';
+import Button from '../components/ui/Button';
+import Badge from '../components/ui/Badge';
+import { scoreCSAT } from '../lib/csatScoring';
+import type { CSATScore } from '../types';
 
-export function Module1_CSAT() {
+const DOMAINS = [
+  { id: 'complexity', name: 'Complexity', description: 'Patient acuity, comorbidities, care complexity', score0: 'Stable, single-problem patient', score1: 'Moderate complexity, 2-3 active issues', score2: 'High acuity, multiple system involvement' },
+  { id: 'surveillance', name: 'Surveillance', description: 'Observation requirements, monitoring frequency', score0: 'Routine monitoring', score1: 'Frequent checks required (every 30-60 min)', score2: 'Continuous surveillance needed' },
+  { id: 'continuity', name: 'Continuity', description: 'Familiarity with patient, assignment continuity', score0: 'Established nurse-patient relationship', score1: 'Some familiarity; second or third assignment', score2: 'New patient, float assignment, or mid-shift transfer' },
+  { id: 'communication', name: 'Communication', description: 'Interdisciplinary demands, family/patient communication load', score0: 'Routine communication load', score1: 'Elevated needs: family questions, frequent team contact', score2: 'Complex family dynamics or active conflict' },
+  { id: 'escalation', name: 'Escalation Risk', description: 'Likelihood of needing rapid escalation', score0: 'Stable, no escalation anticipated', score1: 'Monitoring for possible changes', score2: 'Active deterioration risk or recent rapid response' },
+];
+
+export default function Module1_CSAT() {
   const navigate = useNavigate();
-  const [record, update] = useShiftRecord();
-  const [showCharge, setShowCharge] = useState(record.showChargeRN);
+  const [scores, setScores] = useState<CSATScore[]>(
+    DOMAINS.map(d => ({ domain: d.id, primaryRN: 0 as 0 | 1 | 2 }))
+  );
+  const [showCharge, setShowCharge] = useState(false);
 
-  const scores = record.csatScores;
+  useEffect(() => {
+    const saved = localStorage.getItem('sc_csat');
+    if (saved) setScores(JSON.parse(saved));
+  }, []);
 
-  function getScore(domainId: string): CSATScore {
-    return scores.find(s => s.domainId === domainId) ?? { domainId, primaryRN: 0 };
-  }
+  const updateScore = (domainId: string, field: 'primaryRN' | 'chargeRN', value: 0 | 1 | 2) => {
+    setScores(prev => prev.map(s => s.domain === domainId ? { ...s, [field]: value } : s));
+  };
 
-  function setPrimaryScore(domainId: string, val: CSATDomainScore) {
-    const updated = scores.filter(s => s.domainId !== domainId);
-    const existing = getScore(domainId);
-    update({ csatScores: [...updated, { ...existing, domainId, primaryRN: val }] });
-  }
+  const result = scoreCSAT(scores);
 
-  function setChargeScore(domainId: string, val: CSATDomainScore) {
-    const updated = scores.filter(s => s.domainId !== domainId);
-    const existing = getScore(domainId);
-    update({ csatScores: [...updated, { ...existing, domainId, chargeRN: val }] });
-  }
+  const flagColors = { green: 'green', yellow: 'yellow', red: 'red' } as const;
 
-  function toggleCharge() {
-    setShowCharge(v => {
-      update({ showChargeRN: !v });
-      return !v;
-    });
-  }
-
-  const flagResult = evaluateCSATFlags(scores);
-
-  const flagBg = {
-    green: 'bg-green-50 border-green-200 text-green-800',
-    yellow: 'bg-yellow-50 border-yellow-200 text-yellow-800',
-    red: 'bg-red-50 border-red-200 text-red-800',
-  }[flagResult.status];
+  const handleContinue = () => {
+    localStorage.setItem('sc_csat', JSON.stringify(scores));
+    navigate('/module2');
+  };
 
   return (
-    <Layout>
-      <div className="max-w-3xl mx-auto px-4 py-10">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="text-xs font-semibold text-teal uppercase tracking-wide mb-1">Module 1</div>
-          <h1 className="font-heading font-bold text-2xl text-navy mb-2">Acuity Assessment (CSAT)</h1>
-          <p className="text-sm text-gray-600">
-            CRF Standardized Acuity Tool — Source: Nurse Risk Assessment doc, Tab 17.
-            Score each domain 0–2. Primary RN completes Bedside Acuity. Charge RN entry optional.
-          </p>
-        </div>
+    <div className="space-y-6">
+      <div>
+        <h1 className="font-heading text-3xl font-bold text-navy">Module 1: Acuity Assessment</h1>
+        <p className="text-gray-600 mt-1 font-body">Score each domain from 0 (lowest concern) to 2 (highest concern).</p>
+      </div>
 
-        {/* Context fields */}
-        <Card className="mb-6">
-          <h2 className="font-heading font-semibold text-navy mb-4">Shift Context</h2>
-          <div className="grid sm:grid-cols-2 gap-4">
-            {[
-              { id: 'nurseRole', label: 'Your Role', placeholder: 'RN, Charge RN, etc.' },
-              { id: 'shiftType', label: 'Shift Type', placeholder: 'Day, Night, Evening, etc.' },
-              { id: 'unitType', label: 'Unit Type', placeholder: 'Med-Surg, ICU, ED, L&D, etc.' },
-              { id: 'state', label: 'State', placeholder: 'e.g. Texas' },
-            ].map(f => (
-              <div key={f.id}>
-                <label className="block text-xs font-semibold text-navy mb-1">{f.label}</label>
-                <input
-                  type="text"
-                  placeholder={f.placeholder}
-                  value={(record[f.id as keyof typeof record] as string) ?? ''}
-                  onChange={e => update({ [f.id]: e.target.value } as Partial<typeof record>)}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal/30"
-                />
-              </div>
+      <Card>
+        <div className="flex items-center justify-between">
+          <div>
+            <Badge variant={flagColors[result.flag]}>{result.flag.toUpperCase()} FLAG</Badge>
+            <p className="text-sm text-gray-600 mt-2">{result.explanation}</p>
+          </div>
+          <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+            <input type="checkbox" checked={showCharge} onChange={e => setShowCharge(e.target.checked)} className="w-4 h-4 accent-teal" />
+            Show Charge RN parallel scoring
+          </label>
+        </div>
+        {result.varianceSignals.length > 0 && (
+          <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <p className="text-xs font-semibold text-yellow-800 mb-1">Variance Signals Detected:</p>
+            {result.varianceSignals.map((sig, i) => (
+              <p key={i} className="text-xs text-yellow-700">{sig}</p>
             ))}
           </div>
-        </Card>
+        )}
+      </Card>
 
-        {/* Charge RN toggle */}
-        <div className="flex items-center gap-3 mb-6">
-          <button
-            onClick={toggleCharge}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${showCharge ? 'bg-teal' : 'bg-gray-300'}`}
-          >
-            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${showCharge ? 'translate-x-6' : 'translate-x-1'}`} />
-          </button>
-          <span className="text-sm font-medium text-navy">Include Charge RN parallel scores</span>
-          {showCharge && (
-            <span className="text-xs text-gray-500">(variance auto-flagged when scores differ)</span>
-          )}
-        </div>
-
-        {/* Domain cards */}
-        <div className="space-y-5">
-          {csatDomains.map(domain => {
-            const score = getScore(domain.id);
-            const hasVariance = flagResult.varianceDomains.includes(domain.id);
-
-            return (
-              <Card key={domain.id} className={hasVariance ? 'border-red-200 bg-red-50/30' : ''}>
-                <div className="flex items-start gap-3 mb-3">
-                  <div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-heading font-bold text-navy">{domain.name}</h3>
-                      {domain.isFTRPredictor && (
-                        <Badge variant="red">Strongest FTR Predictor</Badge>
-                      )}
-                      {hasVariance && (
-                        <Badge variant="red">Variance Detected</Badge>
-                      )}
+      {DOMAINS.map(domain => {
+        const score = scores.find(s => s.domain === domain.id)!;
+        return (
+          <Card key={domain.id}>
+            <h3 className="font-heading font-bold text-navy text-lg">{domain.name}</h3>
+            <p className="text-xs text-gray-500 mb-4">{domain.description}</p>
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Primary RN Score</p>
+              {([0, 1, 2] as const).map(val => {
+                const label = domain[`score${val}` as 'score0' | 'score1' | 'score2'];
+                return (
+                  <label key={val} className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${score.primaryRN === val ? 'border-teal bg-teal bg-opacity-5' : 'border-gray-200 hover:border-teal'}`}>
+                    <input
+                      type="radio"
+                      name={`${domain.id}-primary`}
+                      checked={score.primaryRN === val}
+                      onChange={() => updateScore(domain.id, 'primaryRN', val)}
+                      className="mt-0.5 accent-teal"
+                    />
+                    <div>
+                      <span className="font-semibold text-navy text-sm">{val}</span>
+                      <span className="text-gray-600 text-sm ml-2">{label}</span>
                     </div>
-                    <p className="text-xs text-gray-500 mt-0.5">{domain.description}</p>
-                  </div>
-                </div>
+                  </label>
+                );
+              })}
+            </div>
 
-                <div className="space-y-2 mb-3">
-                  {[0, 1, 2].map(val => (
-                    <label key={val} className="flex items-start gap-3 cursor-pointer group">
+            {showCharge && (
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Charge RN Score</p>
+                {([0, 1, 2] as const).map(val => {
+                  const label = domain[`score${val}` as 'score0' | 'score1' | 'score2'];
+                  return (
+                    <label key={val} className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${score.chargeRN === val ? 'border-sage bg-sage bg-opacity-5' : 'border-gray-200 hover:border-sage'}`}>
                       <input
                         type="radio"
-                        name={`${domain.id}-primary`}
-                        checked={score.primaryRN === val}
-                        onChange={() => setPrimaryScore(domain.id, val as CSATDomainScore)}
-                        className="mt-0.5 accent-teal"
+                        name={`${domain.id}-charge`}
+                        checked={score.chargeRN === val}
+                        onChange={() => updateScore(domain.id, 'chargeRN', val)}
+                        className="mt-0.5 accent-sage"
                       />
                       <div>
-                        <span className={`text-xs font-bold mr-1.5 ${val === 0 ? 'text-green-600' : val === 1 ? 'text-yellow-600' : 'text-red-600'}`}>
-                          {val}
-                        </span>
-                        <span className="text-sm text-gray-700">
-                          {val === 0 ? domain.score0 : val === 1 ? domain.score1 : domain.score2}
-                        </span>
+                        <span className="font-semibold text-navy text-sm">{val}</span>
+                        <span className="text-gray-600 text-sm ml-2">{label}</span>
                       </div>
                     </label>
-                  ))}
-                </div>
-
-                {showCharge && (
-                  <div className="mt-4 border-t border-gray-100 pt-3">
-                    <p className="text-xs font-semibold text-gray-500 mb-2">Charge RN Score</p>
-                    <div className="flex gap-4">
-                      {[0, 1, 2].map(val => (
-                        <label key={val} className="flex items-center gap-1.5 cursor-pointer text-sm">
-                          <input
-                            type="radio"
-                            name={`${domain.id}-charge`}
-                            checked={score.chargeRN === val}
-                            onChange={() => setChargeScore(domain.id, val as CSATDomainScore)}
-                            className="accent-sage"
-                          />
-                          <span className={`font-medium ${val === 0 ? 'text-green-600' : val === 1 ? 'text-yellow-600' : 'text-red-600'}`}>{val}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <p className="text-xs text-gray-400 mt-3 italic">Examples: {domain.examples}</p>
-              </Card>
-            );
-          })}
-        </div>
-
-        {/* Flag result */}
-        {scores.length > 0 && (
-          <div className={`mt-6 p-4 rounded-xl border ${flagBg}`}>
-            <p className="font-semibold text-sm mb-1">{flagResult.label}</p>
-            <p className="text-sm">{flagResult.explanation}</p>
-            {flagResult.hasVariance && flagResult.varianceDomains.length > 0 && (
-              <p className="text-xs mt-2">
-                Variance domains: {flagResult.varianceDomains.join(', ')}
-              </p>
+                  );
+                })}
+              </div>
             )}
-          </div>
-        )}
+          </Card>
+        );
+      })}
 
-        {/* Navigation */}
-        <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-between">
-          <Button variant="ghost" onClick={() => navigate('/')}>← Back to Home</Button>
-          <div className="flex gap-3">
-            <Button variant="light" onClick={() => navigate('/module/8')}>Skip to Report</Button>
-            <Button variant="teal" onClick={() => navigate('/module/2')}>Continue to Module 2 →</Button>
-          </div>
-        </div>
-
-        <p className="mt-6 text-xs text-gray-400 text-center">
-          Source: Nurse Risk Assessment doc, Tab 17 · CRF doi:10.5281/zenodo.18237155
-        </p>
+      <div className="flex gap-4">
+        <Button variant="teal" onClick={handleContinue}>Continue to Safe Assignment Checklist</Button>
+        <Button variant="ghost" onClick={() => navigate('/report')}>Skip to Report</Button>
       </div>
-    </Layout>
+    </div>
   );
 }

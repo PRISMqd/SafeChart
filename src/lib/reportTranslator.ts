@@ -1,124 +1,87 @@
-import type { ShiftRecord, ClassificationResult, EscalationEntry } from '../types';
+import type { ClassificationResult, EscalationRecord } from '../types';
+import { FEDERAL_CITATIONS } from '../data/federal_citations';
 
-export const REQUIRED_DISCLOSURE = `SafeChart is a professional documentation support tool. It does not constitute legal advice. Use of this tool does not guarantee protection from employment consequences. Nurses should consult their Nurse Practice Act, union representative if applicable, and personal legal counsel regarding specific situations. All submissions are the nurse's own professional documentation. PRISMqd does not submit anything on your behalf without your explicit, confirmed authorization.`;
+const DISCLOSURE = `SafeChart is a professional documentation support tool. It does not constitute legal advice. Use of this tool does not guarantee protection from employment consequences. Nurses should consult their Nurse Practice Act, union representative if applicable, and personal legal counsel regarding specific situations. All submissions are the nurse's own professional documentation. PRISMqd does not submit anything on your behalf without your explicit, confirmed authorization.`;
 
-const TIER_CITATIONS: Record<string, string[]> = {
-  low: ['ANA Code of Ethics, Provisions 3 and 6 (2015)'],
-  moderate: ['CRF doi:10.5281/zenodo.18237155', 'ANA Code of Ethics, Provisions 3 and 6 (2015)'],
-  high: [
-    'CMDS doi:10.5281/zenodo.18985075',
-    'CMS Conditions of Participation, 42 CFR § 482',
-    'OSHA General Duty Clause, 29 U.S.C. § 654(a)(1)',
-    'OSHA Whistleblower Protection, 29 CFR Part 1977',
-  ],
-  critical: [
-    'EMTALA, 42 U.S.C. § 1395dd',
-    'CMS Conditions of Participation, 42 CFR § 482',
-    'OSHA General Duty Clause, 29 U.S.C. § 654(a)(1)',
-    'AHRQ Patient Safety Primer: Failure to Rescue (2023)',
-  ],
-};
+export function translateReport(
+  _freeText: string,
+  classification: ClassificationResult,
+  escalations: EscalationRecord[],
+  checklistItems: string[],
+): string {
+  const sections: string[] = [];
 
-function formatDateTime(iso: string): string {
-  try {
-    return new Date(iso).toLocaleString('en-US', {
-      dateStyle: 'long',
-      timeStyle: 'short',
-    });
-  } catch {
-    return iso;
-  }
-}
+  sections.push('PROFESSIONAL DOCUMENTATION RECORD');
+  sections.push(`Generated: ${new Date().toLocaleString()}`);
+  sections.push('');
 
-function escalationResponseLabel(r: EscalationEntry['response']): string {
-  const map: Record<EscalationEntry['response'], string> = {
-    resolved: 'Resolved',
-    deferred: 'Deferred',
-    denied: 'Denied',
-    no_response: 'No Response Received',
-  };
-  return map[r];
-}
+  sections.push('CLINICAL CONTEXT SUMMARY');
+  sections.push('This record constitutes a professional documentation of nursing conditions and safety-relevant events as experienced by the reporting nurse. All observations and concerns herein reflect contemporaneous clinical assessment.');
+  sections.push('');
 
-export function buildTranslatedReport(record: ShiftRecord): string {
-  const { classification, escalations, timestamp, nurseRole, shiftType, unitType, state } = record;
-  const tier = classification?.severityTier ?? 'low';
-  const tierLabel = tier.charAt(0).toUpperCase() + tier.slice(1);
-
-  let out = '';
-
-  out += `SAFECHART PROFESSIONAL DOCUMENTATION RECORD\n`;
-  out += `PRISMqd | safechart.prismqd.com\n`;
-  out += `Generated: ${formatDateTime(timestamp)}\n\n`;
-
-  out += `DOCUMENTATION CONTEXT\n`;
-  if (nurseRole) out += `Role: ${nurseRole}\n`;
-  if (shiftType) out += `Shift: ${shiftType}\n`;
-  if (unitType) out += `Unit Type: ${unitType}\n`;
-  if (state) out += `State: ${state}\n`;
-  out += `Severity Classification: ${tierLabel}\n\n`;
-
-  if (classification && classification.matches.length > 0) {
-    out += `CLINICAL SIGNAL CLASSIFICATION (CRF/CMDS Framework)\n`;
-    out += `Source: CRF doi:10.5281/zenodo.18237155; CMDS doi:10.5281/zenodo.18985075\n\n`;
-
+  if (classification.matches.length > 0) {
+    sections.push('DOCUMENTED SAFETY SIGNALS');
     for (const match of classification.matches) {
-      out += `${match.category.name}\n`;
-      out += `  CRF Stages Implicated: ${match.category.crfStages.join(', ')}\n`;
-      out += `  CMDS Mechanisms Active: ${match.category.cmdsMechanisms.join(', ')}\n`;
-      out += `  Risk Category: ${match.category.riskCategory}\n`;
-      if (match.category.autoHighRisk) {
-        out += `  FLAG: AUTOMATIC HIGH-RISK — Non-removable. Continuity violation equivalent to handoff failure.\n`;
+      sections.push(`\n[${match.riskCategory}]`);
+      sections.push(match.translationFraming);
+      if (match.crfStages.length > 0) {
+        sections.push(`CRF Mapping: ${match.crfStages.join(', ')}`);
       }
-      out += `\n`;
+      if (match.cmdsMechanisms.length > 0) {
+        sections.push(`CMDS Mechanism(s): ${match.cmdsMechanisms.join(', ')}`);
+      }
     }
+    sections.push('');
   }
 
-  out += `TRANSLATED PROFESSIONAL RECORD\n\n`;
-
-  if (classification?.matches && classification.matches.length > 0) {
-    for (const match of classification.matches) {
-      out += `[${match.category.name}]\n`;
-      out += match.category.translationFraming + '\n\n';
-    }
-  } else {
-    out += `The nurse has documented a professional concern regarding workplace safety conditions. `;
-    out += `This record is a contemporaneous professional document created at the time of the event.\n\n`;
-  }
-
-  if (escalations && escalations.length > 0) {
-    out += `ESCALATION TIMELINE\n`;
+  if (escalations.length > 0) {
+    sections.push('ESCALATION LOG');
     for (const esc of escalations) {
-      out += `  ${esc.attemptTime} — Reported to: ${esc.reportedTo}\n`;
-      out += `  Response: ${escalationResponseLabel(esc.response)}\n`;
-      if (esc.details) out += `  Details: ${esc.details}\n`;
-
-      if (esc.response === 'denied' || esc.response === 'no_response') {
-        out += `  CMDS M6 FLAG: This escalation attempt received ${escalationResponseLabel(esc.response).toLowerCase()}. `;
-        out += `This pattern is documented in published safety science as escalation suppression, `;
-        out += `a recognized organizational mechanism that increases failure-to-rescue risk. `;
-        out += `Source: CMDS doi:10.5281/zenodo.18985075\n`;
-      }
-      out += `\n`;
+      const responseLabel = {
+        resolved: 'Resolved',
+        deferred: 'Deferred without resolution',
+        denied: 'DENIED — institutional non-response documented',
+        no_response: 'NO RESPONSE — escalation unacknowledged',
+      }[esc.response];
+      sections.push(`${esc.attemptTime} — Reported to: ${esc.reportedTo} — Response: ${responseLabel}`);
+      if (esc.details) sections.push(`  Details: ${esc.details}`);
     }
+    sections.push('');
   }
 
-  out += `APPLICABLE AUTHORITIES\n`;
-  const citations = TIER_CITATIONS[tier] ?? TIER_CITATIONS.low;
-  for (const cite of citations) {
-    out += `  • ${cite}\n`;
+  if (checklistItems.length > 0) {
+    sections.push('SAFETY CHECKLIST FLAGS');
+    for (const item of checklistItems) {
+      sections.push(`• ${item}`);
+    }
+    sections.push('');
   }
-  out += `\n`;
 
-  out += `REQUIRED DISCLOSURE\n`;
-  out += REQUIRED_DISCLOSURE + '\n';
-
-  return out;
-}
-
-export function buildNurseAccountSummary(freeText: string, classification: ClassificationResult | undefined): string {
-  if (!freeText && (!classification || classification.matches.length === 0)) {
-    return 'No narrative entered.';
+  sections.push('SEVERITY CLASSIFICATION');
+  sections.push(`Tier: ${classification.severityTier.toUpperCase()}`);
+  if (classification.autoHighRisk) {
+    sections.push('AUTO HIGH-RISK FLAG: Mid-shift reassignment documented — non-removable flag per CRF framework.');
   }
-  return freeText || '(No free text narrative entered. Classification derived from structured inputs.)';
+  sections.push('');
+
+  sections.push('APPLICABLE REGULATORY FRAMEWORK');
+  const citationsToInclude = (() => {
+    if (classification.severityTier === 'critical' || classification.severityTier === 'high') {
+      return FEDERAL_CITATIONS;
+    }
+    if (classification.severityTier === 'moderate') {
+      return FEDERAL_CITATIONS.filter(c => ['CMS_CoP', 'OSHA_GDC', 'ANA_CODE'].includes(c.id));
+    }
+    return FEDERAL_CITATIONS.filter(c => ['ANA_CODE'].includes(c.id));
+  })();
+
+  for (const citation of citationsToInclude) {
+    sections.push(`${citation.label} (${citation.citation}): ${citation.description}`);
+  }
+  sections.push('');
+
+  sections.push('DISCLOSURE');
+  sections.push(DISCLOSURE);
+
+  return sections.join('\n');
 }

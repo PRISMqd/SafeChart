@@ -1,13 +1,13 @@
-import type { ReactNode } from 'react';
-import { Header } from './Header';
-import { Footer } from './Footer';
+import { Outlet } from 'react-router-dom';
+import Header from './Header';
+import Footer from './Footer';
 
-export function Layout({ children }: { children: ReactNode }) {
+export default function Layout() {
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-warm">
       <Header />
-      <main className="flex-1">
-        {children}
+      <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-8">
+        <Outlet />
       </main>
       <Footer />
     </div>

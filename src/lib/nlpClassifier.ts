@@ -1,73 +1,48 @@
-import { nlpCategories } from '../data/nlp_keywords';
+import { NLP_KEYWORD_CATEGORIES } from '../data/nlp_keywords';
 import type { ClassificationResult, NLPMatch, SeverityTier } from '../types';
 
 export function classifyText(text: string): ClassificationResult {
-  const lower = text.toLowerCase();
+  const lowerText = text.toLowerCase();
   const matches: NLPMatch[] = [];
 
-  for (const category of nlpCategories) {
-    const matchedPhrases = category.phrases.filter(phrase =>
-      lower.includes(phrase.toLowerCase())
-    );
+  for (const category of NLP_KEYWORD_CATEGORIES) {
+    const matchedPhrases: string[] = [];
+    for (const kw of category.keywords) {
+      if (lowerText.includes(kw.toLowerCase())) {
+        matchedPhrases.push(kw);
+      }
+    }
     if (matchedPhrases.length > 0) {
-      matches.push({ category, matchedPhrases });
+      matches.push({
+        category: category.id,
+        categoryName: category.name,
+        matchedPhrases,
+        crfStages: category.crfStages,
+        cmdsMechanisms: category.cmdsMechanisms,
+        riskCategory: category.riskCategory,
+        autoHighRisk: category.autoHighRisk,
+        translationFraming: category.translationFraming,
+      });
     }
   }
 
-  const autoHighRisk = matches.some(m => m.category.autoHighRisk);
-  const hasEscalationFailure = matches.some(m => m.category.id === 3);
-  const hasPatientDeterioration = matches.some(m => m.category.id === 6);
-  const hasSignalSuppression = matches.some(m => m.category.id === 7);
-  const hasSitterConcern = matches.some(m => m.category.id === 9);
+  const autoHighRisk = matches.some(m => m.autoHighRisk === true);
+  const hasEscalationFailure = matches.some(m => m.category === 3);
+  const hasPatientDeterioration = matches.some(m => m.category === 6);
+  const hasSignalSuppression = matches.some(m => m.category === 7);
+  const hasSitterConcern = matches.some(m => m.category === 9);
 
-  const severityTier = deriveSeverityTier({
-    autoHighRisk,
-    hasEscalationFailure,
-    hasPatientDeterioration,
-    hasSitterConcern,
-    matchCount: matches.length,
-  });
+  let severityTier: SeverityTier = 'low';
 
-  return {
-    matches,
-    severityTier,
-    autoHighRisk,
-    hasEscalationFailure,
-    hasPatientDeterioration,
-    hasSignalSuppression,
-  };
+  if (hasSignalSuppression || (hasSitterConcern && hasPatientDeterioration)) {
+    severityTier = 'critical';
+  } else if ((hasEscalationFailure && hasPatientDeterioration) || autoHighRisk) {
+    severityTier = 'high';
+  } else if (hasEscalationFailure || matches.some(m => m.category === 5) || matches.some(m => m.category === 1)) {
+    severityTier = 'moderate';
+  } else if (matches.length > 0) {
+    severityTier = 'low';
+  }
+
+  return { matches, severityTier, autoHighRisk, hasEscalationFailure, hasPatientDeterioration };
 }
-
-function deriveSeverityTier(params: {
-  autoHighRisk: boolean;
-  hasEscalationFailure: boolean;
-  hasPatientDeterioration: boolean;
-  hasSitterConcern: boolean;
-  matchCount: number;
-}): SeverityTier {
-  const { autoHighRisk, hasEscalationFailure, hasPatientDeterioration, hasSitterConcern, matchCount } = params;
-
-  if (hasPatientDeterioration && hasSitterConcern) return 'critical';
-  if (hasPatientDeterioration && hasEscalationFailure) return 'critical';
-
-  if (hasEscalationFailure || hasPatientDeterioration || autoHighRisk) return 'high';
-
-  if (matchCount >= 2) return 'moderate';
-  if (matchCount === 1) return 'low';
-
-  return 'low';
-}
-
-export const severityLabels: Record<string, string> = {
-  low: 'Low',
-  moderate: 'Moderate',
-  high: 'High',
-  critical: 'Critical',
-};
-
-export const severityColors: Record<string, string> = {
-  low: 'bg-blue-100 text-blue-800',
-  moderate: 'bg-yellow-100 text-yellow-800',
-  high: 'bg-orange-100 text-orange-800',
-  critical: 'bg-red-100 text-red-800',
-};

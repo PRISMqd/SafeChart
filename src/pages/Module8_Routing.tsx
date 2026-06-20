@@ -1,301 +1,171 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Layout } from '../components/layout/Layout';
-import { Card } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
-import { Badge } from '../components/ui/Badge';
-import { useShiftRecord } from '../lib/store';
-import { stateBONRegistry } from '../data/state_bon_registry';
-import { getCitationsForDestination } from '../data/federal_citations';
-import { REQUIRED_DISCLOSURE } from '../lib/reportTranslator';
-import { exportToPDF } from '../lib/pdfExport';
-import { Download, Mail, Lock, ExternalLink, AlertCircle, CheckSquare } from 'lucide-react';
+import Card from '../components/ui/Card';
+import Button from '../components/ui/Button';
+import Badge from '../components/ui/Badge';
+import RequiredDisclosure from '../components/disclosure/RequiredDisclosure';
+import { STATE_BON_REGISTRY } from '../data/state_bon_registry';
+import { FEDERAL_CITATIONS } from '../data/federal_citations';
+import { exportPDF } from '../lib/pdfExport';
 
-interface Destination {
-  id: string;
-  label: string;
-  description: string;
-  disabled?: boolean;
-  disabledReason?: string;
-  icon?: React.ReactNode;
-}
-
-const destinations: Destination[] = [
+const DESTINATIONS = [
   {
-    id: 'download',
-    label: 'PDF Download',
-    description: 'Complete record saved to your device only. No server storage.',
-    icon: <Download size={16} />,
-  },
-  {
-    id: 'email',
-    label: 'Email to Self',
-    description: 'Complete record sent via your email client. No PRISMqd server involvement.',
-    icon: <Mail size={16} />,
-  },
-  {
-    id: 'BON',
-    label: 'State Board of Nursing',
-    description: 'NPA-compliant structured complaint. Nurse name optional; state and facility type required by agency.',
-    icon: <ExternalLink size={16} />,
-  },
-  {
-    id: 'CMS',
-    label: 'CMS — Centers for Medicare & Medicaid Services',
-    description: 'CoP-aligned complaint under 42 CFR § 482. Facility name required by agency.',
-    icon: <ExternalLink size={16} />,
-  },
-  {
-    id: 'OSHA',
-    label: 'OSHA — Occupational Safety and Health Administration',
-    description: 'General Duty Clause complaint, 29 U.S.C. § 654(a)(1). Whistleblower protections apply.',
-    icon: <ExternalLink size={16} />,
-  },
-  {
-    id: 'legislator',
-    label: 'State Legislature',
-    description: 'Constituent communication with pattern summary. Nurse name and facility name both optional.',
-    icon: <ExternalLink size={16} />,
-  },
-  {
-    id: 'PRISMqd',
-    label: 'PRISMqd Anonymized Research Dataset',
-    description: 'Aggregated, de-identified record contributed to nurse safety research. Facility name replaced by state/type/size tier.',
+    id: 'prismqd',
+    label: 'PRISMqd Dataset',
+    icon: '🔬',
+    description: 'Submit anonymized data to the PRISMqd nurse safety dataset for aggregated research.',
     disabled: true,
-    disabledReason: 'Privacy policy attorney review pending — available in Phase 2.',
-    icon: <Lock size={16} />,
+    disabledNote: 'Privacy review pending — available in Phase 2',
+    citations: [] as string[],
+  },
+  {
+    id: 'bon',
+    label: 'State Board of Nursing',
+    icon: '🏛️',
+    description: 'Submit a concern to your State Board of Nursing. Each BON has jurisdiction over safe practice standards.',
+    disabled: false,
+    disabledNote: '',
+    citations: ['ANA_CODE'],
+  },
+  {
+    id: 'legislature',
+    label: 'State Legislature',
+    icon: '📜',
+    description: 'Contact your state legislators as a constituent regarding unsafe nurse staffing conditions.',
+    disabled: false,
+    disabledNote: '',
+    citations: ['NLRA_S7'],
+  },
+  {
+    id: 'cms',
+    label: 'CMS Complaint',
+    icon: '🏥',
+    description: 'File a complaint with the Centers for Medicare and Medicaid Services regarding Conditions of Participation violations.',
+    disabled: false,
+    disabledNote: '',
+    citations: ['CMS_CoP', 'EMTALA'],
+  },
+  {
+    id: 'osha',
+    label: 'OSHA Complaint',
+    icon: '⚠️',
+    description: 'File a complaint with OSHA under the General Duty Clause regarding recognized workplace hazards.',
+    disabled: false,
+    disabledNote: '',
+    citations: ['OSHA_GDC', 'WHISTLEBLOWER'],
   },
 ];
 
-export function Module8_Routing() {
-  const navigate = useNavigate();
-  const [record, update] = useShiftRecord();
-  const [selected, setSelected] = useState<Set<string>>(new Set(['download']));
-  const [selectedState, setSelectedState] = useState(record.state || '');
-  const [confirmed, setConfirmed] = useState(false);
+export default function Module8_Routing() {
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selectedState, setSelectedState] = useState('');
 
-  function toggleDestination(id: string) {
+  const toggle = (id: string) => {
+    if (DESTINATIONS.find(d => d.id === id)?.disabled) return;
     setSelected(prev => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
-  }
+  };
 
-  const bonEntry = stateBONRegistry.find(e => e.state === selectedState || e.abbreviation === selectedState);
+  const bon = STATE_BON_REGISTRY.find(s => s.stateCode === selectedState);
 
-  function handleDownloadPDF() {
-    exportToPDF(record);
-  }
+  const handleDownloadPDF = () => {
+    const freeText = localStorage.getItem('sc_freetext') || '';
+    const translated = localStorage.getItem('sc_translated') || freeText;
+    exportPDF(freeText || '(No narrative)', translated || '(No translated record)', new Date().toLocaleString());
+  };
 
-  function handleEmailToSelf() {
-    const subject = encodeURIComponent('SafeChart Professional Documentation Record');
-    const body = encodeURIComponent(
-      `SafeChart Professional Documentation Record\nGenerated: ${new Date(record.timestamp).toLocaleString()}\n\nThis record was generated via SafeChart, a PRISMqd professional documentation tool.\n\n${REQUIRED_DISCLOSURE}`
-    );
-    window.location.href = `mailto:?subject=${subject}&body=${body}`;
-  }
-
-  function handleRoute() {
-    if (selected.has('download')) handleDownloadPDF();
-    if (selected.has('email')) handleEmailToSelf();
-    // External routing (BON, CMS, OSHA, legislator) opens guidance — not auto-submitted
-    if (selected.has('BON') && bonEntry) {
-      window.open(bonEntry.bon_complaint_url, '_blank', 'noopener');
-    }
-    if (selected.has('CMS')) {
-      window.open('https://www.cms.gov/medicare/provider-enrollment-and-certification/surveycertificationgeninfo/downloads/complaintbrochure.pdf', '_blank', 'noopener');
-    }
-    if (selected.has('OSHA')) {
-      window.open('https://www.osha.gov/workers/file-complaint', '_blank', 'noopener');
-    }
-  }
-
-  const selectedCount = Array.from(selected).filter(id => !destinations.find(d => d.id === id)?.disabled).length;
+  const mailtoSelf = `mailto:?subject=SafeChart Documentation&body=${encodeURIComponent(localStorage.getItem('sc_freetext') || '')}`;
 
   return (
-    <Layout>
-      <div className="max-w-3xl mx-auto px-4 py-10">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="text-xs font-semibold text-teal uppercase tracking-wide mb-1">Module 8</div>
-          <h1 className="font-heading font-bold text-2xl text-navy mb-2">Report Submission & Routing</h1>
-          <p className="text-sm text-gray-600">
-            Select one or more destinations for your documentation. Nothing is submitted without your explicit confirmation below.
-          </p>
-        </div>
+    <div className="space-y-6">
+      <div>
+        <h1 className="font-heading text-3xl font-bold text-navy">Module 8: Report &amp; Submission</h1>
+        <p className="text-gray-600 mt-1 font-body">Select submission destinations. You control what is submitted and when.</p>
+      </div>
 
-        {/* Severity context */}
-        {record.classification && (
-          <div className="mb-6 bg-white border border-gray-100 rounded-xl p-4 shadow-sm flex items-center gap-3">
-            <div>
-              <p className="text-xs font-semibold text-navy">Your record classification:</p>
-              <div className="flex flex-wrap gap-2 mt-1.5">
-                <Badge
-                  variant={
-                    record.classification.severityTier === 'critical' || record.classification.severityTier === 'high' ? 'red' :
-                    record.classification.severityTier === 'moderate' ? 'yellow' : 'gray'
-                  }
-                >
-                  {record.classification.severityTier.charAt(0).toUpperCase() + record.classification.severityTier.slice(1)} Severity
-                </Badge>
-                {record.classification.hasEscalationFailure && <Badge variant="red">Escalation Failure</Badge>}
-                {record.classification.autoHighRisk && <Badge variant="red">Auto High-Risk</Badge>}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Review report first */}
-        <div className="mb-6">
-          <Button variant="light" size="sm" onClick={() => navigate('/report')} className="flex items-center gap-2">
-            ← Review Translated Report First
-          </Button>
-        </div>
-
-        {/* Destination cards */}
-        <div className="space-y-3 mb-8">
-          <h2 className="font-heading font-semibold text-navy mb-3">Select Destinations</h2>
-          {destinations.map(dest => {
-            const isSelected = selected.has(dest.id);
-            const isDisabled = dest.disabled;
-            const citations = getCitationsForDestination(dest.id);
-
-            return (
-              <div
-                key={dest.id}
-                className={`rounded-xl border p-4 transition-all ${
-                  isDisabled
-                    ? 'bg-gray-50 border-gray-200 opacity-60'
-                    : isSelected
-                    ? 'bg-teal/5 border-teal/30 shadow-sm'
-                    : 'bg-white border-gray-100 hover:border-teal/20 cursor-pointer'
-                }`}
-                onClick={() => !isDisabled && toggleDestination(dest.id)}
-              >
-                <div className="flex items-start gap-3">
-                  <div className={`mt-0.5 ${isDisabled ? 'text-gray-400' : isSelected ? 'text-teal' : 'text-gray-400'}`}>
-                    {isDisabled ? <Lock size={16} /> : dest.icon}
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className={`font-heading font-semibold text-sm ${isDisabled ? 'text-gray-400' : 'text-navy'}`}>
-                        {dest.label}
-                      </span>
-                      {isSelected && !isDisabled && <Badge variant="teal">Selected</Badge>}
-                      {isDisabled && <Badge variant="gray">Phase 2</Badge>}
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">{dest.description}</p>
-                    {isDisabled && dest.disabledReason && (
-                      <p className="text-xs text-gray-400 mt-1 italic">{dest.disabledReason}</p>
-                    )}
-
-                    {/* BON state selector */}
-                    {isSelected && dest.id === 'BON' && (
-                      <div className="mt-3">
-                        <label className="block text-xs font-semibold text-navy mb-1">Select Your State</label>
-                        <select
-                          value={selectedState}
-                          onChange={e => { setSelectedState(e.target.value); update({ state: e.target.value }); }}
-                          className="w-full sm:w-64 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal/30 bg-white"
-                          onClick={e => e.stopPropagation()}
-                        >
-                          <option value="">Select state...</option>
-                          {stateBONRegistry.map(s => (
-                            <option key={s.abbreviation} value={s.state}>{s.state}</option>
-                          ))}
-                        </select>
-                        {bonEntry && (
-                          <div className="mt-3 bg-cream rounded-lg p-3 border border-gray-100 text-xs space-y-1">
-                            <p className="font-semibold text-navy">{bonEntry.bon_name}</p>
-                            <p className="text-gray-600">{bonEntry.npa_authority}</p>
-                            <p className="text-gray-600">Phone: {bonEntry.bon_phone}</p>
-                            {bonEntry.bon_email && <p className="text-gray-600">Email: {bonEntry.bon_email}</p>}
-                            <p className="text-gray-600">
-                              Anonymous complaints: {bonEntry.anonymous_complaint_accepted === 'yes' ? 'Accepted' : bonEntry.anonymous_complaint_accepted === 'no' ? 'Not accepted' : 'Conditional'}
-                            </p>
-                            {bonEntry.build_status === 'requires_verification' && (
-                              <p className="text-orange-600 flex items-center gap-1">
-                                <AlertCircle size={11} />
-                                Verify current info at: {bonEntry.bon_complaint_url}
-                              </p>
-                            )}
-                            <a
-                              href={bonEntry.bon_complaint_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-teal hover:underline flex items-center gap-1"
-                              onClick={e => e.stopPropagation()}
-                            >
-                              File complaint <ExternalLink size={11} />
-                            </a>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Citations for selected destination */}
-                    {isSelected && !isDisabled && citations.length > 0 && dest.id !== 'download' && dest.id !== 'email' && (
-                      <div className="mt-3">
-                        <p className="text-xs font-semibold text-navy mb-1">Applicable Citations</p>
-                        <div className="space-y-1">
-                          {citations.map(c => (
-                            <div key={c.id} className="text-xs text-gray-600 flex items-start gap-1.5">
-                              <span className="text-teal mt-0.5">•</span>
-                              <span><span className="font-medium">{c.citation}</span> — {c.neutral_citation_phrase}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {DESTINATIONS.map(dest => (
+          <div
+            key={dest.id}
+            onClick={() => toggle(dest.id)}
+            className={`rounded-xl border-2 p-5 transition-all ${dest.disabled ? 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-60' : selected.has(dest.id) ? 'border-teal bg-teal bg-opacity-5 cursor-pointer' : 'border-gray-200 bg-white cursor-pointer hover:border-teal'}`}
+          >
+            <div className="flex items-start justify-between">
+              <div className="flex gap-3 items-start">
+                <span className="text-2xl">{dest.icon}</span>
+                <div>
+                  <p className="font-heading font-bold text-navy text-base">{dest.label}</p>
+                  <p className="text-sm text-gray-600 mt-1 font-body">{dest.description}</p>
                 </div>
               </div>
-            );
-          })}
-        </div>
-
-        {/* Confirmation */}
-        {selectedCount > 0 && (
-          <Card className="mb-6 border-navy/10">
-            <label className="flex items-start gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={confirmed}
-                onChange={e => setConfirmed(e.target.checked)}
-                className="mt-0.5 accent-teal h-4 w-4 shrink-0"
-              />
-              <span className="text-sm text-gray-700">
-                I confirm that this documentation represents my professional account of the events I witnessed and experienced. I authorize submission to the selected destinations. I understand this tool does not constitute legal advice.
-              </span>
-            </label>
-          </Card>
-        )}
-
-        {/* Disclosure */}
-        <div className="bg-navy/5 border border-navy/10 rounded-xl p-4 mb-8">
-          <p className="text-xs text-gray-500 leading-relaxed">{REQUIRED_DISCLOSURE}</p>
-        </div>
-
-        {/* Action */}
-        <div className="flex flex-col sm:flex-row gap-3 justify-between">
-          <Button variant="ghost" onClick={() => navigate('/report')}>← Back to Report</Button>
-          <Button
-            variant="teal"
-            onClick={handleRoute}
-            disabled={selectedCount === 0 || !confirmed}
-            className="flex items-center gap-2"
-          >
-            <CheckSquare size={15} />
-            Submit Selected ({selectedCount})
-          </Button>
-        </div>
-
-        <p className="mt-8 text-xs text-gray-400 text-center">
-          Source: Federal citations monitored per SOT v1.3 Section X · Last verified: 2026-06-19
-        </p>
+              {!dest.disabled && (
+                <input type="checkbox" checked={selected.has(dest.id)} readOnly className="mt-1 w-4 h-4 accent-teal" />
+              )}
+            </div>
+            {dest.disabled && dest.disabledNote && (
+              <p className="text-xs text-gray-500 mt-2 font-medium">{dest.disabledNote}</p>
+            )}
+            {dest.citations.length > 0 && selected.has(dest.id) && (
+              <div className="mt-3 pt-3 border-t border-gray-200">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Applicable Citations</p>
+                {dest.citations.map(cid => {
+                  const citation = FEDERAL_CITATIONS.find(c => c.id === cid);
+                  if (!citation) return null;
+                  return (
+                    <div key={cid} className="mb-2">
+                      <Badge variant="navy">{citation.label}</Badge>
+                      <p className="text-xs text-gray-600 mt-1">{citation.citation}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        ))}
       </div>
-    </Layout>
+
+      {selected.has('bon') && (
+        <Card>
+          <h2 className="font-heading font-bold text-navy text-lg mb-3">State Board of Nursing</h2>
+          <div className="mb-4">
+            <label className="text-sm font-semibold text-gray-600 block mb-2">Select Your State</label>
+            <select
+              value={selectedState}
+              onChange={e => setSelectedState(e.target.value)}
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full max-w-xs focus:outline-none focus:ring-2 focus:ring-teal"
+            >
+              <option value="">-- Select State --</option>
+              {STATE_BON_REGISTRY.map(s => (
+                <option key={s.stateCode} value={s.stateCode}>{s.state}</option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-400 mt-1">Phase 1 includes 8 states. Full registry in Phase 2.</p>
+          </div>
+          {bon && (
+            <div className="bg-warm rounded-lg p-4 space-y-2">
+              <p className="font-semibold text-navy">{bon.boardName}</p>
+              <p className="text-sm text-gray-600">Phone: {bon.phone}</p>
+              {bon.email && <p className="text-sm text-gray-600">Email: {bon.email}</p>}
+              <a href={bon.website} target="_blank" rel="noreferrer" className="text-teal text-sm underline block">Board Website</a>
+              <a href={bon.complaintUrl} target="_blank" rel="noreferrer" className="text-teal text-sm underline block">File a Complaint</a>
+              <p className="text-xs text-gray-500 mt-2 pt-2 border-t border-gray-200">{bon.npaNotes}</p>
+            </div>
+          )}
+        </Card>
+      )}
+
+      <Card>
+        <h2 className="font-heading font-bold text-navy text-lg mb-4">Export Options</h2>
+        <div className="flex flex-wrap gap-3">
+          <Button variant="teal" onClick={handleDownloadPDF}>Download PDF</Button>
+          <a href={mailtoSelf}><Button variant="teal-outline">Email to Self</Button></a>
+        </div>
+        <p className="text-xs text-gray-500 mt-3">PDF and email options are always available regardless of destination selection.</p>
+      </Card>
+
+      <RequiredDisclosure />
+    </div>
   );
 }

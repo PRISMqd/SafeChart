@@ -1,14 +1,10 @@
-import { REQUIRED_DISCLOSURE } from '../../lib/reportTranslator';
-
-export function Footer() {
+export default function Footer() {
   return (
-    <footer className="bg-navy/5 border-t border-gray-200 mt-16">
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        <p className="text-xs text-gray-500 leading-relaxed">{REQUIRED_DISCLOSURE}</p>
-        <div className="mt-4 flex items-center justify-between text-xs text-gray-400">
-          <span>© 2026 Jennifer Torrez / PRISMqd. All rights reserved.</span>
-          <span>SafeChart v1.0 — Phase 1 MVP</span>
-        </div>
+    <footer className="bg-navy text-gray-400 py-6 mt-auto">
+      <div className="max-w-6xl mx-auto px-4 text-center text-xs">
+        <p className="text-gray-300 font-body">SafeChart by PRISMqd — Phase 1 MVP</p>
+        <p className="mt-1">Professional documentation support for nurses. No facility subscription required.</p>
+        <p className="mt-2 text-gray-500">SafeChart does not constitute legal advice. All documentation is the nurse's own professional record.</p>
       </div>
     </footer>
   );
