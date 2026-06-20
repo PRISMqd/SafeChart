@@ -4,10 +4,12 @@ import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
 import RequiredDisclosure from '../components/disclosure/RequiredDisclosure';
+import PeerResources from '../components/ui/PeerResources';
 import { classifyText } from '../lib/nlpClassifier';
 import { translateReport } from '../lib/reportTranslator';
 import { exportPDF } from '../lib/pdfExport';
-import type { EscalationRecord, ClassificationResult } from '../types';
+import { logAudit, getSessionLog } from '../lib/auditTrail';
+import type { EscalationRecord, ClassificationResult, EventType } from '../types';
 
 export default function Report() {
   const navigate = useNavigate();
@@ -16,14 +18,18 @@ export default function Report() {
   const [checklistItems, setChecklistItems] = useState<string[]>([]);
   const [classification, setClassification] = useState<ClassificationResult | null>(null);
   const [editedTranslated, setEditedTranslated] = useState('');
+  const [eventType, setEventType] = useState<EventType | ''>('');
+  const sessionStart = useState(() => new Date().toISOString())[0];
 
   useEffect(() => {
     const ft = localStorage.getItem('sc_freetext') || '';
     const esc = localStorage.getItem('sc_escalations');
     const cl = localStorage.getItem('sc_checklist_text');
+    const et = localStorage.getItem('sc_event_type');
     setFreeText(ft);
     if (esc) setEscalations(JSON.parse(esc));
     if (cl) setChecklistItems(JSON.parse(cl));
+    if (et) setEventType(et as EventType);
 
     const escArr = esc ? JSON.parse(esc) : [];
     const clArr = cl ? JSON.parse(cl) : [];
@@ -32,10 +38,18 @@ export default function Report() {
     const report = translateReport(ft, cls, escArr, clArr);
     setEditedTranslated(report);
     localStorage.setItem('sc_translated', report);
+
+    logAudit('REPORT_VIEWED');
   }, []);
+
+  const handleEditTranslated = (val: string) => {
+    setEditedTranslated(val);
+    localStorage.setItem('sc_translated', val);
+  };
 
   const handleDownloadPDF = () => {
     exportPDF(freeText || '(No narrative entered)', editedTranslated, new Date().toLocaleString());
+    logAudit('PDF_DOWNLOADED');
   };
 
   const mailto = `mailto:?subject=SafeChart Documentation Record&body=${encodeURIComponent(editedTranslated)}`;
@@ -46,12 +60,26 @@ export default function Report() {
     return 'green';
   };
 
+  const isHighSeverity = classification && (classification.severityTier === 'high' || classification.severityTier === 'critical');
+  const sessionLog = getSessionLog();
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="font-heading text-3xl font-bold text-navy">Documentation Report</h1>
         <p className="text-gray-600 mt-1 font-body">Two-column view: your account alongside the professionally translated record.</p>
+        <div className="mt-2 inline-flex items-center gap-2 bg-teal bg-opacity-10 border border-teal rounded-lg px-3 py-1.5">
+          <span className="text-xs font-semibold text-teal">CONTEMPORANEOUS RECORD</span>
+          <span className="text-xs text-gray-600">Session: {new Date(sessionStart).toLocaleString()}</span>
+        </div>
       </div>
+
+      {eventType && (
+        <div className="p-3 bg-warm border border-gray-200 rounded-lg">
+          <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold mb-1">Event Type</p>
+          <p className="text-sm font-medium text-navy">{eventType}</p>
+        </div>
+      )}
 
       {classification && (
         <Card>
@@ -70,6 +98,10 @@ export default function Report() {
             ))}
           </div>
         </Card>
+      )}
+
+      {isHighSeverity && (
+        <PeerResources severity={classification!.severityTier as 'high' | 'critical'} />
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -104,7 +136,7 @@ export default function Report() {
             <textarea
               className="w-full text-sm font-body text-gray-700 min-h-80 focus:outline-none resize-y border-none outline-none"
               value={editedTranslated}
-              onChange={e => setEditedTranslated(e.target.value)}
+              onChange={e => handleEditTranslated(e.target.value)}
               placeholder="Translated documentation will appear here after narrative is entered in Module 3."
             />
           </Card>
@@ -113,12 +145,24 @@ export default function Report() {
 
       <div className="flex flex-wrap gap-3">
         <Button variant="teal" onClick={handleDownloadPDF}>Download PDF</Button>
-        <a href={mailto}>
+        <a href={mailto} onClick={() => logAudit('EMAIL_TO_SELF')}>
           <Button variant="teal-outline">Email to Self</Button>
         </a>
         <Button variant="primary" onClick={() => navigate('/module8')}>Continue to Routing</Button>
         <Button variant="ghost" onClick={() => navigate('/module3')}>Back to Escalation</Button>
       </div>
+
+      {sessionLog.length > 0 && (
+        <div className="p-3 bg-warm border border-gray-200 rounded-lg">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Session Audit Trail</p>
+          <p className="text-xs text-gray-600">{sessionLog.length} action{sessionLog.length !== 1 ? 's' : ''} recorded this session. This record is stored locally on your device only.</p>
+          <div className="mt-2 space-y-0.5 max-h-28 overflow-y-auto">
+            {sessionLog.map((entry, i) => (
+              <p key={i} className="text-xs text-gray-500">{new Date(entry.timestamp).toLocaleTimeString()} — {entry.action}{entry.details ? ` (${entry.details})` : ''}</p>
+            ))}
+          </div>
+        </div>
+      )}
 
       <RequiredDisclosure />
     </div>

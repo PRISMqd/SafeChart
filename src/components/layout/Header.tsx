@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
 const NAV_LINKS = [
   { to: '/', label: 'Home' },
+  { to: '/quick', label: 'Quick Entry' },
   { to: '/module1', label: 'Acuity' },
   { to: '/module2', label: 'Checklist' },
   { to: '/module3', label: 'Escalation' },
@@ -12,8 +13,13 @@ const NAV_LINKS = [
 ];
 
 export default function Header() {
-  const location = useLocation();
   const [open, setOpen] = useState(false);
+
+  const isActive = (to: string) => {
+    const hash = window.location.hash.replace('#', '') || '/';
+    if (to === '/') return hash === '/' || hash === '';
+    return hash.startsWith(to);
+  };
 
   return (
     <header className="bg-navy shadow-md">
@@ -30,7 +36,7 @@ export default function Header() {
               key={link.to}
               to={link.to}
               className={`px-3 py-1.5 rounded text-sm font-body transition-colors ${
-                location.hash === `#${link.to}` || (link.to === '/' && location.hash === '')
+                isActive(link.to)
                   ? 'text-white bg-white bg-opacity-15'
                   : 'text-gray-300 hover:text-white hover:bg-white hover:bg-opacity-10'
               }`}

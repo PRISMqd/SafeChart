@@ -1,4 +1,17 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <rect width="32" height="32" rx="6" fill="#1A2B47"/>
-  <text x="7" y="23" font-family="sans-serif" font-weight="bold" font-size="18" fill="#3B8A8C">S</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Shield background -->
+  <path d="M32 4 L56 14 L56 36 Q56 52 32 60 Q8 52 8 36 L8 14 Z" fill="#1A2B47"/>
+  <!-- Inner shield highlight -->
+  <path d="M32 10 L50 18 L50 36 Q50 48 32 55 Q14 48 14 36 L14 18 Z" fill="#243860"/>
+  <!-- Heartbeat / chart line in teal -->
+  <polyline
+    points="16,36 24,36 28,24 32,46 36,22 40,36 48,36"
+    stroke="#3B8A8C"
+    stroke-width="3.5"
+    fill="none"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <!-- Dot at peak -->
+  <circle cx="32" cy="46" r="2.5" fill="#7FB5B0"/>
 </svg>

@@ -7,6 +7,7 @@ import Module3_Escalation from './pages/Module3_Escalation';
 import Report from './pages/Report';
 import Module8_Routing from './pages/Module8_Routing';
 import Glossary from './pages/Glossary';
+import QuickEntry from './pages/QuickEntry';
 
 export default function App() {
   return (
@@ -20,6 +21,7 @@ export default function App() {
           <Route path="report" element={<Report />} />
           <Route path="module8" element={<Module8_Routing />} />
           <Route path="glossary" element={<Glossary />} />
+          <Route path="quick" element={<QuickEntry />} />
         </Route>
       </Routes>
     </HashRouter>

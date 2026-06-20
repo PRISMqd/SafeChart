@@ -3,9 +3,11 @@ import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
 import RequiredDisclosure from '../components/disclosure/RequiredDisclosure';
+import AnonymityStatement from '../components/ui/AnonymityStatement';
 import { STATE_BON_REGISTRY } from '../data/state_bon_registry';
 import { FEDERAL_CITATIONS } from '../data/federal_citations';
 import { exportPDF } from '../lib/pdfExport';
+import { logAudit } from '../lib/auditTrail';
 
 const DESTINATIONS = [
   {
@@ -67,6 +69,7 @@ export default function Module8_Routing() {
     const freeText = localStorage.getItem('sc_freetext') || '';
     const translated = localStorage.getItem('sc_translated') || freeText;
     exportPDF(freeText || '(No narrative)', translated || '(No translated record)', new Date().toLocaleString());
+    logAudit('PDF_DOWNLOADED_MODULE8');
   };
 
   const mailtoSelf = `mailto:?subject=SafeChart Documentation&body=${encodeURIComponent(localStorage.getItem('sc_freetext') || '')}`;
@@ -165,6 +168,7 @@ export default function Module8_Routing() {
                     <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Applicable Statutory Authority</p>
                     <p className="text-xs text-gray-700">{bon.npaNotes}</p>
                   </div>
+                  <AnonymityStatement destination="bon" />
                 </div>
               ) : (
                 <p className="text-sm text-gray-500">Select your state above to see your Board of Nursing contact information.</p>
@@ -183,6 +187,7 @@ export default function Module8_Routing() {
                     <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Applicable Authority</p>
                     <p className="text-xs text-gray-700">29 U.S.C. § 157 (NLRA Section 7) — Protects nurses' rights to engage in concerted activity for mutual aid and protection, including collective advocacy for safe staffing legislation.</p>
                   </div>
+                  <AnonymityStatement destination="legislature" />
                 </div>
               ) : (
                 <div className="bg-warm rounded-lg p-4">
@@ -205,6 +210,7 @@ export default function Module8_Routing() {
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Applicable Authority</p>
                   <p className="text-xs text-gray-700">42 CFR § 482 (CMS Conditions of Participation) — Establishes staffing adequacy requirements for hospitals participating in Medicare/Medicaid, including nursing services standards under § 482.23. Facilities violating CoP requirements risk loss of Medicare/Medicaid certification. 42 U.S.C. § 1395dd (EMTALA) — Requires hospitals to provide stabilizing treatment in emergencies regardless of staffing conditions.</p>
                 </div>
+                <AnonymityStatement destination="cms" />
               </div>
             </Card>
           )}
@@ -220,6 +226,7 @@ export default function Module8_Routing() {
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Applicable Authority</p>
                   <p className="text-xs text-gray-700">29 U.S.C. § 654(a)(1) (OSHA General Duty Clause) — Requires employers to furnish a workplace free from recognized hazards that are causing or are likely to cause death or serious physical harm. Unsafe nurse staffing ratios constitute a recognized hazard under this clause. 29 CFR Part 1977 (OSHA Whistleblower Protection Program) — Protects healthcare workers from retaliation for reporting unsafe working conditions or patient safety concerns to OSHA.</p>
                 </div>
+                <AnonymityStatement destination="osha" />
               </div>
             </Card>
           )}
@@ -233,6 +240,7 @@ export default function Module8_Routing() {
           <Button variant="teal" onClick={handleDownloadPDF}>Download PDF</Button>
           <a href={mailtoSelf}><Button variant="teal-outline">Email to Self</Button></a>
         </div>
+        <AnonymityStatement destination="pdf" />
         <p className="text-xs text-gray-500 mt-3">PDF and email are always available regardless of destination selection.</p>
       </Card>
 

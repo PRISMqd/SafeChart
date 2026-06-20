@@ -16,7 +16,7 @@ export function scoreCSAT(scores: CSATScore[]): CSATResult {
   for (const s of scores) {
     if (s.primaryRN === 2) redCount++;
     if (s.primaryRN === 1) yellowCount++;
-    if (s.chargeRN !== undefined && s.primaryRN > s.chargeRN) {
+    if (s.chargeRN !== undefined && (s.primaryRN ?? 0) > s.chargeRN) {
       varianceSignals.push(`${s.domain}: Primary RN score (${s.primaryRN}) exceeds Charge RN score (${s.chargeRN}) — safety signal detected`);
     }
   }

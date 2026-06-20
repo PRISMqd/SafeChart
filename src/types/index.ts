@@ -9,8 +9,8 @@ export interface CSATDomain {
 
 export interface CSATScore {
   domain: string;
-  primaryRN: 0 | 1 | 2;
-  chargeRN?: 0 | 1 | 2;
+  primaryRN: 0 | 1 | 2 | undefined;
+  chargeRN?: 0 | 1 | 2 | undefined;
 }
 
 export type SeverityTier = 'low' | 'moderate' | 'high' | 'critical';
@@ -39,6 +39,43 @@ export interface EscalationRecord {
   reportedTo: string;
   response: 'resolved' | 'deferred' | 'denied' | 'no_response';
   details: string;
+  loggedAt?: string;
+}
+
+export interface AuditEntry {
+  id: string;
+  sessionId: string;
+  action: string;
+  timestamp: string;
+  details?: string;
+}
+
+export const EVENT_TYPES = [
+  'Staffing / Assignment',
+  'Unsafe Patient Ratio',
+  'Mid-Shift Reassignment / Float',
+  'Escalation Failure',
+  'Patient Deterioration',
+  'Medication / Treatment',
+  'Fall / Injury',
+  'Communication / Coordination',
+  'Equipment / Environment',
+  'Violence / Behavioral',
+  'Sitter / Safety Attendant',
+  'Near Miss',
+  'Other',
+] as const;
+
+export type EventType = typeof EVENT_TYPES[number];
+
+export interface QuickEntryRecord {
+  id: string;
+  timestamp: string;
+  shiftTime: string;
+  unit: string;
+  eventType: EventType | '';
+  description: string;
+  state: string;
 }
 
 export interface ShiftRecord {
@@ -54,4 +91,6 @@ export interface ShiftRecord {
   escalations: EscalationRecord[];
   classification?: ClassificationResult;
   translatedReport?: string;
+  eventType?: EventType | '';
+  draftSaved?: string;
 }

@@ -3,6 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
+import AmbiguityGuide from '../components/ui/AmbiguityGuide';
+import { logAudit } from '../lib/auditTrail';
+import { EVENT_TYPES } from '../types';
+import type { EventType } from '../types';
 
 const CHECKLIST_SECTIONS = [
   {
@@ -57,10 +61,15 @@ const CHECKLIST_SECTIONS = [
 export default function Module2_Checklist() {
   const navigate = useNavigate();
   const [checked, setChecked] = useState<Set<string>>(new Set());
+  const [showGuide, setShowGuide] = useState(true);
+  const [eventType, setEventType] = useState<EventType | ''>('');
+  const sessionStart = useState(() => new Date().toISOString())[0];
 
   useEffect(() => {
     const saved = localStorage.getItem('sc_checklist');
     if (saved) setChecked(new Set(JSON.parse(saved)));
+    const et = localStorage.getItem('sc_event_type');
+    if (et) setEventType(et as EventType);
   }, []);
 
   const toggle = (id: string) => {
@@ -71,39 +80,93 @@ export default function Module2_Checklist() {
     });
   };
 
+  const handleSaveDraft = () => {
+    const items = CHECKLIST_SECTIONS.flatMap(s => s.items).filter(i => checked.has(i.id)).map(i => i.text);
+    localStorage.setItem('sc_checklist', JSON.stringify([...checked]));
+    localStorage.setItem('sc_checklist_text', JSON.stringify(items));
+    if (eventType) localStorage.setItem('sc_event_type', eventType);
+    logAudit('CHECKLIST_DRAFT_SAVED', `${checked.size} items`);
+  };
+
   const handleContinue = () => {
     const items = CHECKLIST_SECTIONS.flatMap(s => s.items).filter(i => checked.has(i.id)).map(i => i.text);
     localStorage.setItem('sc_checklist', JSON.stringify([...checked]));
     localStorage.setItem('sc_checklist_text', JSON.stringify(items));
+    if (eventType) localStorage.setItem('sc_event_type', eventType);
+    logAudit('CHECKLIST_COMPLETED', `${checked.size} items flagged`);
     navigate('/module3');
   };
 
   const autoRiskFlagged = CHECKLIST_SECTIONS.flatMap(s => s.items).some(i => i.autoRisk && checked.has(i.id));
   const checkedCount = checked.size;
 
-  const hasFloat = checked.has('cv1') || checked.has('cv3');
+  // Compound risk detection per SOT v1.4
+  const hasFloat = checked.has('cv1') || checked.has('cv3') || checked.has('cv4');
   const hasOT = checked.has('fc1') || checked.has('fc3');
-  const compoundFlag = hasFloat && hasOT;
+  const hasMidShift = checked.has('cv2');
+  const hasSurveillanceDilution = checked.has('so1') || checked.has('so2') || checked.has('so3');
+  const hasEscalationImpairment = checked.has('ei1') || checked.has('ei2');
+
+  // Check CSAT for any score of 2 (high acuity)
+  const csatHighAcuity = (() => {
+    try {
+      const raw = localStorage.getItem('sc_csat');
+      if (!raw) return false;
+      const scores = JSON.parse(raw);
+      return scores.some((s: { primaryRN: number }) => s.primaryRN === 2);
+    } catch { return false; }
+  })();
+
+  const compoundScenarios: string[] = [];
+  if (hasFloat && hasOT) compoundScenarios.push('Float assignment + overtime in same shift — risk increases multiplicatively, not additively (CRF/Rogers et al. 2004)');
+  if (hasMidShift && csatHighAcuity) compoundScenarios.push('Mid-shift reassignment + high acuity patient (CSAT score 2) — recognition speed and surveillance capacity simultaneously impaired');
+  if (hasSurveillanceDilution && hasEscalationImpairment) compoundScenarios.push('Surveillance dilution + escalation impairment — both detection and response pathways compromised (CRF Stages 1-6)');
+  if (checkedCount >= 3 && compoundScenarios.length === 0) compoundScenarios.push('Three or more simultaneous safety conditions documented — compound risk elevation across CRF stages');
+
+  const hasCompoundRisk = compoundScenarios.length > 0;
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="font-heading text-3xl font-bold text-navy">Module 2: Safe Assignment Checklist</h1>
-        <p className="text-gray-600 mt-1 font-body">Check all items that apply to this shift. Each carries a safety science basis and regulatory citation.</p>
+        <p className="text-gray-600 mt-1 font-body">Check all conditions that apply to this shift. Each carries a safety science basis and regulatory citation.</p>
+        <div className="mt-2 inline-flex items-center gap-2 bg-teal bg-opacity-10 border border-teal rounded-lg px-3 py-1.5">
+          <span className="text-xs font-semibold text-teal">CONTEMPORANEOUS RECORD</span>
+          <span className="text-xs text-gray-600">Created: {new Date(sessionStart).toLocaleString()}</span>
+        </div>
       </div>
 
-      {(autoRiskFlagged || compoundFlag) && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
+      {showGuide && <AmbiguityGuide onDismiss={() => setShowGuide(false)} />}
+
+      <Card>
+        <label className="text-xs font-semibold text-gray-600 block mb-1">Event Type (optional)</label>
+        <select
+          value={eventType}
+          onChange={e => setEventType(e.target.value as EventType | '')}
+          className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full max-w-xs focus:outline-none focus:ring-2 focus:ring-teal"
+        >
+          <option value="">-- Select event type --</option>
+          {EVENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+        </select>
+      </Card>
+
+      {(autoRiskFlagged || hasCompoundRisk) && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-xl space-y-3">
           {autoRiskFlagged && (
-            <div className="flex gap-2 items-start mb-2">
+            <div className="flex gap-2 items-start">
               <Badge variant="red">AUTO HIGH-RISK</Badge>
               <p className="text-sm text-red-800">Mid-shift reassignment flagged. This is a non-removable high-risk designation under the CRF framework.</p>
             </div>
           )}
-          {compoundFlag && (
-            <div className="flex gap-2 items-start">
-              <Badge variant="red">COMPOUND FLAG</Badge>
-              <p className="text-sm text-red-800">Float assignment combined with fatigue factor detected. Compounded risk elevates vulnerability across all CRF stages.</p>
+          {hasCompoundRisk && (
+            <div className="space-y-2">
+              <div className="flex gap-2 items-start">
+                <Badge variant="red">COMPOUND RISK</Badge>
+                <p className="text-sm text-red-800 font-semibold">Two or more simultaneous conditions detected. Risk increases multiplicatively, not additively.</p>
+              </div>
+              {compoundScenarios.map((s, i) => (
+                <p key={i} className="text-xs text-red-700 ml-2">• {s}</p>
+              ))}
             </div>
           )}
         </div>
@@ -111,7 +174,7 @@ export default function Module2_Checklist() {
 
       {checkedCount > 0 && (
         <div className="p-3 bg-warm border border-gray-200 rounded-lg">
-          <p className="text-sm text-navy font-semibold">{checkedCount} safety flag{checkedCount !== 1 ? 's' : ''} documented</p>
+          <p className="text-sm text-navy font-semibold">{checkedCount} safety condition{checkedCount !== 1 ? 's' : ''} documented</p>
         </div>
       )}
 
@@ -145,8 +208,9 @@ export default function Module2_Checklist() {
         </Card>
       ))}
 
-      <div className="flex gap-4">
+      <div className="flex flex-wrap gap-3">
         <Button variant="teal" onClick={handleContinue}>Continue to Escalation Record</Button>
+        <Button variant="ghost" onClick={handleSaveDraft}>Save Draft</Button>
         <Button variant="ghost" onClick={() => navigate('/report')}>Skip to Report</Button>
       </div>
     </div>
