@@ -8,6 +8,12 @@ export interface SubmissionData {
   checklistItems: string[];
   eventType: string;
   sessionTimestamp: string;
+  // Phase 2
+  residualRisk: Record<string, string> | null;
+  sitter: Record<string, unknown> | null;
+  ari: Record<string, unknown> | null;
+  retaliation: Record<string, unknown> | null;
+  internalChain: Record<string, { response: string; reportedAt?: string; details?: string }> | null;
 }
 
 export function loadSubmissionData(): SubmissionData {
@@ -19,18 +25,23 @@ export function loadSubmissionData(): SubmissionData {
   let classification: ClassificationResult | null = null;
   let escalations: EscalationRecord[] = [];
   let checklistItems: string[] = [];
+  let residualRisk: Record<string, string> | null = null;
+  let sitter: Record<string, unknown> | null = null;
+  let ari: Record<string, unknown> | null = null;
+  let retaliation: Record<string, unknown> | null = null;
+  let internalChain: Record<string, { response: string; reportedAt?: string; details?: string }> | null = null;
 
-  try {
-    const raw = localStorage.getItem('sc_escalations');
-    if (raw) escalations = JSON.parse(raw);
-  } catch { /* */ }
+  const tryParse = (key: string) => { try { const r = localStorage.getItem(key); return r ? JSON.parse(r) : null; } catch { return null; } };
 
-  try {
-    const raw = localStorage.getItem('sc_checklist_text');
-    if (raw) checklistItems = JSON.parse(raw);
-  } catch { /* */ }
+  escalations = tryParse('sc_escalations') || [];
+  checklistItems = tryParse('sc_checklist_text') || [];
+  residualRisk = tryParse('sc_residual_risk');
+  sitter = tryParse('sc_sitter');
+  ari = tryParse('sc_ari');
+  retaliation = tryParse('sc_retaliation');
+  internalChain = tryParse('sc_internal_chain');
 
-  return { freeText, translated, classification, escalations, checklistItems, eventType, sessionTimestamp };
+  return { freeText, translated, classification, escalations, checklistItems, eventType, sessionTimestamp, residualRisk, sitter, ari, retaliation, internalChain };
 }
 
 function formatDate(iso: string): string {
@@ -42,13 +53,87 @@ function escalationSummary(escalations: EscalationRecord[]): string {
   if (!escalations.length) return 'No formal escalation attempts were documented.';
   return escalations.map(e => {
     const resp = { resolved: 'Resolved', deferred: 'Deferred without resolution', denied: 'DENIED — institutional non-response', no_response: 'NO RESPONSE — escalation unacknowledged' }[e.response] || e.response;
-    return `  • ${e.attemptTime} — Reported to: ${e.reportedTo} — Response: ${resp}${e.details ? `\n    Details: ${e.details}` : ''}`;
+    const witness = (e as unknown as Record<string, unknown>).witness ? `\n    Witness: ${(e as unknown as Record<string, unknown>).witness}` : '';
+    return `  • ${e.attemptTime} — Reported to: ${e.reportedTo} — Response: ${resp}${e.details ? `\n    Details: ${e.details}` : ''}${witness}`;
   }).join('\n');
 }
 
 function checklistSummary(items: string[]): string {
   if (!items.length) return '';
   return items.map(i => `  • ${i}`).join('\n');
+}
+
+function internalChainSummary(chain: Record<string, { response: string; reportedAt?: string; details?: string }>): string {
+  const levels = Object.entries(chain).filter(([, v]) => v.response);
+  if (!levels.length) return '';
+  return levels.map(([level, v]) => {
+    const resp = { acknowledged: 'Acknowledged', deferred: 'Deferred', denied: 'DENIED', no_response: 'NO RESPONSE' }[v.response] || v.response;
+    return `  • ${level}${v.reportedAt ? ` (${v.reportedAt})` : ''}: ${resp}${v.details ? ` — ${v.details}` : ''}`;
+  }).join('\n');
+}
+
+function residualRiskSection(rr: Record<string, string>): string {
+  const lines: string[] = ['RESIDUAL RISK DOCUMENTATION'];
+  lines.push(`Risk Level: ${(rr.residualRiskLevel || '').toUpperCase()}`);
+  if (rr.outstandingConcerns) lines.push(`Outstanding Concerns: ${rr.outstandingConcerns}`);
+  if (rr.patientsAffected) lines.push(`Patients Affected: ${rr.patientsAffected}`);
+  if (rr.conditionStartTime) lines.push(`Unsafe Condition Began: ${rr.conditionStartTime}`);
+  if (rr.interimSafeguards) lines.push(`Interim Safeguards Implemented: ${rr.interimSafeguards}`);
+  if (rr.anticipatedResolution) lines.push(`Anticipated Resolution: ${rr.anticipatedResolution}`);
+  return lines.join('\n');
+}
+
+function sitterSection(s: Record<string, unknown>): string {
+  const lines: string[] = ['SAFETY ATTENDANT DOCUMENTATION'];
+  if (Array.isArray(s.monitoringNeeds) && s.monitoringNeeds.length) {
+    lines.push(`Monitoring Need(s): ${s.monitoringNeeds.join(', ')}${s.monitoringNeedOther ? ` — ${s.monitoringNeedOther}` : ''}`);
+  }
+  lines.push(`Sitter Assigned at Start of Shift: ${s.sitterAssignedAtStart === true ? 'Yes' : s.sitterAssignedAtStart === false ? 'No' : 'Not documented'}`);
+  if (s.sitterRemovedOrDenied) {
+    lines.push(`Safety Attendant Removed or Request Denied: YES`);
+    if (s.removalTime) lines.push(`  Time of Removal/Denial: ${s.removalTime}`);
+    if (s.removedByRole) lines.push(`  Decision Made By: ${s.removedByRole}`);
+    if (s.reasonGiven) lines.push(`  Reason Given: ${s.reasonGiven}`);
+    if (s.timeWithoutCoverage) lines.push(`  Time Without Coverage: ${s.timeWithoutCoverage}`);
+    if (s.nurseObjection) lines.push(`  Nurse's Documented Objection: ${s.nurseObjection}`);
+  }
+  if (s.patientOutcome) lines.push(`Patient Outcome: ${s.patientOutcome}`);
+  return lines.join('\n');
+}
+
+function ariSection(a: Record<string, unknown>): string {
+  const lines: string[] = ['ADVERSE RESPONSE INDEX (ARI) — Professional Conditions Assessment'];
+  lines.push(`ARI Level: ${(a.ariLevel as string || '').toUpperCase()}`);
+  if (a.scores && typeof a.scores === 'object') {
+    const LABELS = ['None', 'Mild', 'Significant'];
+    const DOMAIN_NAMES: Record<string, string> = {
+      cognitive_load: 'Cognitive Load',
+      fatigue: 'Fatigue Status',
+      moral_distress: 'Moral Distress',
+      retaliation_fear: 'Fear of Retaliation',
+      physical_capacity: 'Physical Capacity',
+    };
+    for (const [id, score] of Object.entries(a.scores as Record<string, number>)) {
+      if (score !== undefined) {
+        lines.push(`  ${DOMAIN_NAMES[id] || id}: ${LABELS[score] || score}`);
+      }
+    }
+  }
+  if (a.additionalContext) lines.push(`Additional Context: ${a.additionalContext}`);
+  lines.push('NOTE: ARI documents assignment conditions at the time of documentation, not a clinical fitness determination.');
+  return lines.join('\n');
+}
+
+function retaliationSection(r: Record<string, unknown>): string {
+  const lines: string[] = ['RETALIATION DOCUMENTATION'];
+  if (r.flaggedAt) lines.push(`Flagged: ${formatDate(r.flaggedAt as string)}`);
+  if (Array.isArray(r.indicators) && r.indicators.length) {
+    lines.push('Indicators:');
+    r.indicators.forEach((i: string) => lines.push(`  • ${i}`));
+  }
+  if (r.details) lines.push(`Details: ${r.details}`);
+  lines.push('Whistleblower Protection: 29 CFR Part 1977 — Report retaliation to OSHA within 30 days. Call 1-800-321-6742.');
+  return lines.join('\n');
 }
 
 // ─── BON ────────────────────────────────────────────────────────────────────
@@ -75,9 +160,38 @@ export function generateBONComplaint(data: SubmissionData, boardName: string, _s
     lines.push('');
   }
 
+  if (data.internalChain) {
+    const summary = internalChainSummary(data.internalChain);
+    if (summary) {
+      lines.push('INTERNAL CHAIN OF COMMAND REPORTING');
+      lines.push(summary);
+      lines.push('');
+    }
+  }
+
   if (data.escalations.length > 0) {
     lines.push('ESCALATION ATTEMPTS');
     lines.push(escalationSummary(data.escalations));
+    lines.push('');
+  }
+
+  if (data.residualRisk) {
+    lines.push(residualRiskSection(data.residualRisk));
+    lines.push('');
+  }
+
+  if (data.sitter) {
+    lines.push(sitterSection(data.sitter));
+    lines.push('');
+  }
+
+  if (data.ari) {
+    lines.push(ariSection(data.ari));
+    lines.push('');
+  }
+
+  if (data.retaliation) {
+    lines.push(retaliationSection(data.retaliation));
     lines.push('');
   }
 
@@ -125,6 +239,11 @@ export function generateLegislatorLetter(data: SubmissionData, state: string): s
   if (data.escalations.length > 0) {
     lines.push('ESCALATION ATTEMPTS AND INSTITUTIONAL RESPONSE');
     lines.push(escalationSummary(data.escalations));
+    lines.push('');
+  }
+
+  if (data.residualRisk) {
+    lines.push(residualRiskSection(data.residualRisk));
     lines.push('');
   }
 
@@ -179,9 +298,28 @@ export function generateCMSComplaint(data: SubmissionData): string {
     lines.push('');
   }
 
+  if (data.internalChain) {
+    const summary = internalChainSummary(data.internalChain);
+    if (summary) {
+      lines.push('INTERNAL CHAIN OF COMMAND REPORTING');
+      lines.push(summary);
+      lines.push('');
+    }
+  }
+
   if (data.escalations.length > 0) {
     lines.push('INTERNAL ESCALATION ATTEMPTS');
     lines.push(escalationSummary(data.escalations));
+    lines.push('');
+  }
+
+  if (data.residualRisk) {
+    lines.push(residualRiskSection(data.residualRisk));
+    lines.push('');
+  }
+
+  if (data.sitter) {
+    lines.push(sitterSection(data.sitter));
     lines.push('');
   }
 
@@ -232,10 +370,34 @@ export function generateOSHAComplaint(data: SubmissionData): string {
     lines.push('');
   }
 
+  if (data.internalChain) {
+    const summary = internalChainSummary(data.internalChain);
+    if (summary) {
+      lines.push('INTERNAL CHAIN OF COMMAND REPORTING');
+      lines.push(summary);
+      lines.push('');
+    }
+  }
+
   if (data.escalations.length > 0) {
     lines.push('INTERNAL REPORTING ATTEMPTS');
     lines.push('The following internal escalation attempts were made prior to this OSHA complaint:');
     lines.push(escalationSummary(data.escalations));
+    lines.push('');
+  }
+
+  if (data.residualRisk) {
+    lines.push(residualRiskSection(data.residualRisk));
+    lines.push('');
+  }
+
+  if (data.ari) {
+    lines.push(ariSection(data.ari));
+    lines.push('');
+  }
+
+  if (data.retaliation) {
+    lines.push(retaliationSection(data.retaliation));
     lines.push('');
   }
 
@@ -289,6 +451,5 @@ export function getRepFinderUrl(stateCode: string, zip: string): string | null {
 }
 
 export function getFallbackRepUrl(legislatureUrl: string, _zip: string): string {
-  // Try to append zip as a search param on states not explicitly mapped
   return legislatureUrl;
 }

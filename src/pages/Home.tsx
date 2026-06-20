@@ -73,6 +73,10 @@ export default function Home() {
     const csat = localStorage.getItem('sc_csat');
     const checklist = localStorage.getItem('sc_checklist');
     const quickEntries = localStorage.getItem('sc_quick_entries');
+    const residualRisk = localStorage.getItem('sc_residual_risk');
+    const sitter = localStorage.getItem('sc_sitter');
+    const ari = localStorage.getItem('sc_ari');
+    const retaliation = localStorage.getItem('sc_retaliation');
 
     const parts: string[] = [];
     if (ft && ft.trim()) parts.push('narrative');
@@ -86,6 +90,10 @@ export default function Home() {
         if (entries.length > 0) parts.push(`${entries.length} quick entr${entries.length === 1 ? 'y' : 'ies'}`);
       } catch { /* */ }
     }
+    if (residualRisk) parts.push('residual risk');
+    if (sitter) parts.push('sitter documentation');
+    if (ari) parts.push('ARI assessment');
+    if (retaliation) { try { if (JSON.parse(retaliation).indicators?.length > 0) parts.push('retaliation flags'); } catch { /* */ } }
 
     if (parts.length > 0) {
       setHasDraft(true);
@@ -94,7 +102,7 @@ export default function Home() {
   }, []);
 
   const handleClearSession = () => {
-    ['sc_freetext', 'sc_csat', 'sc_checklist', 'sc_checklist_text', 'sc_escalations', 'sc_translated', 'sc_event_type', 'sc_csat_draft_time', 'sc_csat_saved_at'].forEach(k => localStorage.removeItem(k));
+    ['sc_freetext', 'sc_csat', 'sc_checklist', 'sc_checklist_text', 'sc_escalations', 'sc_translated', 'sc_event_type', 'sc_csat_draft_time', 'sc_csat_saved_at', 'sc_residual_risk', 'sc_sitter', 'sc_ari', 'sc_retaliation', 'sc_internal_chain'].forEach(k => localStorage.removeItem(k));
     setHasDraft(false);
     setDraftInfo('');
   };
