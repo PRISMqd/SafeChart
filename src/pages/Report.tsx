@@ -24,6 +24,14 @@ const RISK_LEVEL_COLORS: Record<string, string> = {
   unresolved: 'bg-red-50 border-red-200 text-red-800',
 };
 
+const CITATION_EXPLANATIONS = [
+  { pattern: /29 U\.S\.C\. §654/, label: '29 U.S.C. §654(a)(1)', plain: 'The federal workplace safety law — employers must provide a workplace free from recognized hazards that cause or are likely to cause serious harm.' },
+  { pattern: /42 C\.F\.R\. §482/, label: '42 C.F.R. §482', plain: 'Medicare Conditions of Participation — hospitals must meet these standards to receive Medicare and Medicaid reimbursement. Includes patient rights and safety requirements.' },
+  { pattern: /NPA|Nursing Practice Act/, label: 'Nursing Practice Act', plain: 'Your state\'s law governing nursing licensure. Nurses have a legal and ethical duty to refuse unsafe assignments and report unsafe conditions.' },
+  { pattern: /ANA Code/, label: 'ANA Code of Ethics', plain: 'The American Nurses Association Code of Ethics, Provision 3 — nurses must protect patients from incompetent, unethical, or illegal practices.' },
+  { pattern: /29 C\.F\.R\. §1904/, label: '29 C.F.R. §1904', plain: 'OSHA recordkeeping — employers must log and report workplace injuries and illnesses. Failing to do so is a separate violation.' },
+];
+
 export default function Report() {
   const navigate = useNavigate();
   const [freeText, setFreeText] = useState('');
@@ -36,6 +44,8 @@ export default function Report() {
   const [sitter, setSitter] = useState<Record<string, unknown> | null>(null);
   const [ari, setAri] = useState<Record<string, unknown> | null>(null);
   const [retaliation, setRetaliation] = useState<Record<string, unknown> | null>(null);
+  const [dismissFormal, setDismissFormal] = useState(false);
+  const [showCitations, setShowCitations] = useState(false);
   const sessionStart = useState(() => new Date().toISOString())[0];
 
   useEffect(() => {
@@ -65,17 +75,31 @@ export default function Report() {
     logAudit('REPORT_VIEWED');
   }, []);
 
+  const handleEditFreeText = (val: string) => {
+    setFreeText(val);
+    localStorage.setItem('sc_freetext', val);
+    const escArr = escalations;
+    const clArr = checklistItems;
+    const cls = classifyText(val);
+    setClassification(cls);
+    const report = translateReport(val, cls, escArr, clArr);
+    setEditedTranslated(report);
+    localStorage.setItem('sc_translated', report);
+  };
+
   const handleEditTranslated = (val: string) => {
     setEditedTranslated(val);
     localStorage.setItem('sc_translated', val);
   };
 
+  const submissionText = dismissFormal ? freeText : editedTranslated;
+
   const handleDownloadPDF = () => {
-    exportPDF(freeText || '(No narrative entered)', editedTranslated, new Date().toLocaleString());
+    exportPDF(freeText || '(No narrative entered)', submissionText, new Date().toLocaleString());
     logAudit('PDF_DOWNLOADED');
   };
 
-  const mailto = `mailto:?subject=SafeChart Documentation Record&body=${encodeURIComponent(editedTranslated)}`;
+  const mailto = `mailto:?subject=SafeChart Documentation Record&body=${encodeURIComponent(submissionText)}`;
 
   const tierColor = (tier: string): 'red' | 'yellow' | 'green' => {
     if (tier === 'critical' || tier === 'high') return 'red';
@@ -91,11 +115,13 @@ export default function Report() {
   const sitterRemovedOrDenied = sitter?.sitterRemovedOrDenied === true;
   const retaliationCount = Array.isArray(retaliation?.indicators) ? (retaliation!.indicators as string[]).length : 0;
 
+  const activeCitations = CITATION_EXPLANATIONS.filter(c => c.pattern.test(editedTranslated));
+
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-heading text-3xl font-bold text-navy">Documentation Report</h1>
-        <p className="text-gray-600 mt-1 font-body">Your full documentation record across all completed modules.</p>
+        <h1 className="font-heading text-3xl font-bold text-navy">Your Record</h1>
+        <p className="text-gray-600 mt-1 font-body">Everything you've documented, ready to review and use.</p>
         <div className="mt-2 inline-flex items-center gap-2 bg-teal bg-opacity-10 border border-teal rounded-lg px-3 py-1.5">
           <span className="text-xs font-semibold text-teal">CONTEMPORANEOUS RECORD</span>
           <span className="text-xs text-gray-600">Session: {new Date(sessionStart).toLocaleString()}</span>
@@ -109,7 +135,7 @@ export default function Report() {
         </div>
       )}
 
-      {/* Status badges */}
+      {/* Status badges — clinical flags only, no internal framework labels */}
       {(classification || ariLevel || riskLevel || sitterRemovedOrDenied || retaliationCount > 0) && (
         <Card>
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Documentation Status</p>
@@ -117,22 +143,16 @@ export default function Report() {
             {classification && (
               <>
                 <Badge variant={tierColor(classification.severityTier)}>
-                  {classification.severityTier.toUpperCase()} SEVERITY
+                  {classification.severityTier === 'critical' ? 'CRITICAL' : classification.severityTier === 'high' ? 'HIGH RISK' : classification.severityTier === 'moderate' ? 'MODERATE RISK' : 'DOCUMENTED'}
                 </Badge>
                 {classification.autoHighRisk && <Badge variant="red">AUTO HIGH-RISK</Badge>}
-                {classification.hasEscalationFailure && <Badge variant="red">ESCALATION FAILURE</Badge>}
-                {classification.hasPatientDeterioration && <Badge variant="red">PATIENT DETERIORATION</Badge>}
-                {classification.matches.flatMap(m => m.crfStages).filter((v, i, a) => a.indexOf(v) === i).map(s => (
-                  <Badge key={s} variant="navy">{s}</Badge>
-                ))}
-                {classification.matches.flatMap(m => m.cmdsMechanisms).filter((v, i, a) => a.indexOf(v) === i).map(s => (
-                  <Badge key={s} variant="sage">{s}</Badge>
-                ))}
+                {classification.hasEscalationFailure && <Badge variant="red">ESCALATION FAILURE DOCUMENTED</Badge>}
+                {classification.hasPatientDeterioration && <Badge variant="red">PATIENT DETERIORATION DOCUMENTED</Badge>}
               </>
             )}
             {ariLevel && (
               <Badge variant={ariLevel === 'high' ? 'red' : ariLevel === 'moderate' ? 'yellow' : 'green'}>
-                ARI: {ariLevel.toUpperCase()}
+                ADVERSE RESPONSE: {ariLevel.toUpperCase()}
               </Badge>
             )}
             {riskLevel && riskLevel !== 'low' && (
@@ -150,17 +170,20 @@ export default function Report() {
         <PeerResources severity={classification!.severityTier as 'high' | 'critical'} />
       )}
 
-      {/* Narrative + translation */}
+      {/* Two-panel CSCP */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div>
-          <h2 className="font-heading font-bold text-navy text-lg mb-3">Your Account</h2>
+          <h2 className="font-heading font-bold text-navy text-lg mb-3">Your words</h2>
           <Card className="h-full">
-            <p className="text-sm text-gray-700 whitespace-pre-wrap font-body">
-              {freeText || <span className="text-gray-400 italic">No narrative entered.</span>}
-            </p>
+            <textarea
+              className="w-full text-sm font-body text-gray-700 min-h-64 focus:outline-none resize-y border-none outline-none"
+              value={freeText}
+              onChange={e => handleEditFreeText(e.target.value)}
+              placeholder="Nothing entered yet. Your words from the documentation modules appear here."
+            />
             {checklistItems.length > 0 && (
               <div className="mt-4 pt-4 border-t border-gray-100">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Checklist Flags</p>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Safety Flags</p>
                 {checklistItems.map((item, i) => (
                   <p key={i} className="text-xs text-gray-600 mb-1">• {item}</p>
                 ))}
@@ -181,22 +204,63 @@ export default function Report() {
         </div>
 
         <div>
-          <h2 className="font-heading font-bold text-navy text-lg mb-3">Translated Record</h2>
-          <Card className="h-full">
-            <textarea
-              className="w-full text-sm font-body text-gray-700 min-h-80 focus:outline-none resize-y border-none outline-none"
-              value={editedTranslated}
-              onChange={e => handleEditTranslated(e.target.value)}
-              placeholder="Translated documentation will appear here after narrative is entered in Module 3."
-            />
-          </Card>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-heading font-bold text-navy text-lg">How this reads formally</h2>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={dismissFormal}
+                onChange={e => setDismissFormal(e.target.checked)}
+                className="rounded border-gray-300"
+              />
+              <span className="text-xs text-gray-600">Use my words only</span>
+            </label>
+          </div>
+          {dismissFormal ? (
+            <Card className="h-full">
+              <div className="text-center py-8 text-sm text-gray-500">
+                <p className="font-medium text-navy mb-1">Formal version dismissed.</p>
+                <p>Your words will be used for all exports and routing.</p>
+                <button onClick={() => setDismissFormal(false)} className="mt-3 text-teal underline text-xs">Restore formal version</button>
+              </div>
+            </Card>
+          ) : (
+            <Card className="h-full">
+              <textarea
+                className="w-full text-sm font-body text-gray-700 min-h-64 focus:outline-none resize-y border-none outline-none"
+                value={editedTranslated}
+                onChange={e => handleEditTranslated(e.target.value)}
+                placeholder="The formal version of your documentation appears here. You can edit it."
+              />
+              {activeCitations.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-gray-100">
+                  <button
+                    onClick={() => setShowCitations(c => !c)}
+                    className="text-xs text-teal font-semibold flex items-center gap-1"
+                  >
+                    {showCitations ? '▾' : '▸'} What these citations mean ({activeCitations.length})
+                  </button>
+                  {showCitations && (
+                    <div className="mt-2 space-y-2">
+                      {activeCitations.map((c, i) => (
+                        <div key={i} className="p-2 bg-warm rounded border border-gray-200">
+                          <p className="text-xs font-semibold text-navy">{c.label}</p>
+                          <p className="text-xs text-gray-600 mt-0.5">{c.plain}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </Card>
+          )}
         </div>
       </div>
 
       {/* Residual Risk */}
       {residualRisk && (
         <Card>
-          <h2 className="font-heading font-bold text-navy text-base mb-3">Module 4: Residual Risk</h2>
+          <h2 className="font-heading font-bold text-navy text-base mb-3">Post-Escalation Risk</h2>
           <div className={`p-3 rounded-lg border mb-3 ${RISK_LEVEL_COLORS[riskLevel || 'moderate']}`}>
             <p className="text-sm font-semibold">Risk Level: {(riskLevel || '').toUpperCase()}</p>
           </div>
@@ -215,7 +279,7 @@ export default function Report() {
       {/* Sitter */}
       {sitter && (
         <Card>
-          <h2 className="font-heading font-bold text-navy text-base mb-3">Module 5: Safety Attendant</h2>
+          <h2 className="font-heading font-bold text-navy text-base mb-3">Safety Attendant</h2>
           {sitterRemovedOrDenied && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-lg mb-3 flex gap-2 items-center">
               <Badge variant="red">SAFETY CONCERN</Badge>
@@ -244,9 +308,9 @@ export default function Report() {
       {/* ARI */}
       {ari && (
         <Card>
-          <h2 className="font-heading font-bold text-navy text-base mb-3">Module 6: Adverse Response Index</h2>
+          <h2 className="font-heading font-bold text-navy text-base mb-3">Adverse Response Assessment</h2>
           <div className={`p-3 rounded-lg border mb-3 ${ARI_LEVEL_COLORS[ariLevel || 'low']}`}>
-            <p className="text-sm font-semibold">ARI Level: {(ariLevel || '').toUpperCase()}</p>
+            <p className="text-sm font-semibold">Level: {(ariLevel || '').toUpperCase()}</p>
           </div>
           {!!ari.scores && typeof ari.scores === 'object' && (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -302,8 +366,8 @@ export default function Report() {
         <a href={mailto} onClick={() => logAudit('EMAIL_TO_SELF')}>
           <Button variant="teal-outline">Email to Self</Button>
         </a>
-        <Button variant="primary" onClick={() => navigate('/module8')}>Continue to Routing</Button>
-        <Button variant="ghost" onClick={() => navigate('/module6')}>Back to ARI</Button>
+        <Button variant="primary" onClick={() => navigate('/module8')}>Route & Submit</Button>
+        <Button variant="ghost" onClick={() => navigate('/module6')}>Back</Button>
       </div>
 
       {sessionLog.length > 0 && (
