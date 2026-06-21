@@ -10,8 +10,8 @@ const NAV_LINKS = [
   { to: '/module4', label: 'Residual Risk' },
   { to: '/module5', label: 'Sitter' },
   { to: '/module6', label: 'ARI' },
-  { to: '/report', label: 'Report' },
-  { to: '/module8', label: 'Submit' },
+  { to: '/report', label: 'Your Record' },
+  { to: '/module8', label: 'Route & Submit' },
   { to: '/glossary', label: 'Glossary' },
 ];
 

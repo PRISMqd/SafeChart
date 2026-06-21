@@ -114,10 +114,76 @@ function GeneratedTextBlock({ text, label }: { text: string; label: string }) {
   );
 }
 
+const QUAL_SITUATIONS = [
+  {
+    id: 'unsafe_told_charge',
+    label: 'My assignment was unsafe and I told my charge nurse or supervisor.',
+    destinations: ['bon'],
+    note: 'This establishes a documented escalation — the foundation of a Board of Nursing complaint.',
+  },
+  {
+    id: 'supervisor_ignored',
+    label: 'My supervisor refused or ignored my concern about the unsafe assignment.',
+    destinations: ['bon', 'osha'],
+    note: 'Supervisor refusal is a key element of both NPA complaints and OSHA General Duty Clause filings.',
+  },
+  {
+    id: 'patient_harmed',
+    label: 'A patient was harmed, or was at serious risk of being harmed.',
+    destinations: ['bon', 'cms'],
+    note: 'CMS Conditions of Participation require hospitals to protect patients from foreseeable harm. Patient harm or risk of harm triggers mandatory reporting obligations.',
+  },
+  {
+    id: 'sitter_removed',
+    label: 'A safety attendant (sitter) was removed or my request for one was denied.',
+    destinations: ['bon', 'cms'],
+    note: 'Removal of a sitter from a high-risk patient is a patient safety event that CMS and the Board of Nursing track.',
+  },
+  {
+    id: 'retaliation',
+    label: 'I\'m being punished, threatened, or treated differently because I spoke up.',
+    destinations: ['osha', 'hhs'],
+    note: 'This is workplace retaliation. OSHA\'s Whistleblower Protection Program and HHS OIG both cover retaliation for reporting unsafe conditions.',
+  },
+  {
+    id: 'pattern',
+    label: 'This isn\'t a one-time event — unsafe staffing is an ongoing pattern at my facility.',
+    destinations: ['legislature', 'cms'],
+    note: 'Patterns of unsafe staffing are exactly what legislators and CMS need to hear about. Your documentation becomes part of a systemic record.',
+  },
+  {
+    id: 'medicare_facility',
+    label: 'My facility receives Medicare or Medicaid funding.',
+    destinations: ['cms'],
+    note: 'Federally certified facilities must meet CMS Conditions of Participation. Non-compliance can trigger a CMS survey or investigation.',
+  },
+  {
+    id: 'physical_injury',
+    label: 'I was physically injured, or my health was endangered, by the unsafe workload.',
+    destinations: ['osha'],
+    note: 'OSHA\'s General Duty Clause protects workers from recognized hazards — including injury from unsafe nurse-to-patient ratios and physical overload.',
+  },
+  {
+    id: 'written_objection_denied',
+    label: 'I submitted a written objection or assignment under protest and management denied it.',
+    destinations: ['bon', 'osha'],
+    note: 'A denied written objection is a documented refusal to mitigate a known hazard — strengthens both BON and OSHA filings significantly.',
+  },
+  {
+    id: 'legislature_contact',
+    label: 'I want my lawmakers to know what\'s happening in hospitals in their district.',
+    destinations: ['legislature'],
+    note: 'Constituent communication is protected speech. Your documentation becomes a constituent letter — factual, professional, and addressed to the people writing the laws.',
+  },
+];
+
 export default function Module8_Routing() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [selectedState, setSelectedState] = useState('');
   const [zip, setZip] = useState('');
+  const [qualAnswers, setQualAnswers] = useState<Set<string>>(new Set());
+  const [qualDone, setQualDone] = useState(false);
+  const [skipQual, setSkipQual] = useState(false);
 
   const data = loadSubmissionData();
   const bon = STATE_BON_REGISTRY.find(s => s.stateCode === selectedState);
@@ -131,6 +197,28 @@ export default function Module8_Routing() {
       return next;
     });
   };
+
+  const toggleQual = (id: string) => {
+    setQualAnswers(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const applyQualGuide = () => {
+    const destSet = new Set<string>();
+    for (const sit of QUAL_SITUATIONS) {
+      if (qualAnswers.has(sit.id)) {
+        sit.destinations.forEach(d => destSet.add(d));
+      }
+    }
+    setSelected(destSet);
+    setQualDone(true);
+  };
+
+  const selectedSituations = QUAL_SITUATIONS.filter(s => qualAnswers.has(s.id));
+  const suggestedDestIds = [...new Set(selectedSituations.flatMap(s => s.destinations))];
 
   const handleDownloadPDF = useCallback(() => {
     const freeText = localStorage.getItem('sc_freetext') || '';
@@ -166,9 +254,9 @@ export default function Module8_Routing() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-heading text-3xl font-bold text-navy">Module 8: Submit Documentation</h1>
+        <h1 className="font-heading text-3xl font-bold text-navy">Route Your Documentation</h1>
         <p className="text-gray-600 mt-1 font-body">
-          Select your destinations. Your documentation is pre-formatted for each agency — copy, send by email, or open the filing form directly. Nothing is submitted without your action.
+          Tell us what happened and we'll show you where your documentation can go. Your record is already formatted — nothing is sent without your action.
         </p>
       </div>
 
@@ -187,12 +275,80 @@ export default function Module8_Routing() {
         </select>
         {!data.freeText && (
           <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2 mt-3">
-            No narrative found in this session. Complete Module 1–3 or Quick Entry before submitting.
+            No narrative found in this session. Complete Module 1–3 or Quick Entry before routing.
           </p>
         )}
       </Card>
 
+      {/* Qualification Guide (UX-11/17/18) */}
+      {!skipQual && !qualDone && (
+        <Card>
+          <div className="mb-4">
+            <h2 className="font-heading font-bold text-navy text-lg">Which of these apply to your situation?</h2>
+            <p className="text-sm text-gray-600 mt-1">Select everything that fits. We'll show you what your documentation can be used for.</p>
+          </div>
+          <div className="space-y-3">
+            {QUAL_SITUATIONS.map(sit => {
+              const isChecked = qualAnswers.has(sit.id);
+              const sitDests = sit.destinations.map(d => DESTINATIONS.find(x => x.id === d)?.label).filter(Boolean);
+              return (
+                <label key={sit.id} className={`flex gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors ${isChecked ? 'border-teal bg-teal bg-opacity-5' : 'border-gray-200 hover:border-teal hover:bg-gray-50'}`}>
+                  <input
+                    type="checkbox"
+                    checked={isChecked}
+                    onChange={() => toggleQual(sit.id)}
+                    className="mt-0.5 w-5 h-5 accent-teal shrink-0"
+                  />
+                  <div>
+                    <p className="text-sm font-medium text-navy">{sit.label}</p>
+                    {isChecked && (
+                      <p className="text-xs text-gray-600 mt-1">{sit.note}</p>
+                    )}
+                    {isChecked && sitDests.length > 0 && (
+                      <p className="text-xs text-teal font-semibold mt-1">→ {sitDests.join(', ')}</p>
+                    )}
+                  </div>
+                </label>
+              );
+            })}
+          </div>
+
+          {qualAnswers.size > 0 && (
+            <div className="mt-4 p-3 bg-warm rounded-lg border border-gray-200">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Based on your answers</p>
+              <p className="text-sm text-navy">Your documentation is relevant to: <strong>{suggestedDestIds.map(d => DESTINATIONS.find(x => x.id === d)?.label).filter(Boolean).join(', ')}</strong></p>
+            </div>
+          )}
+
+          <div className="flex gap-3 mt-4 flex-wrap">
+            <Button variant="teal" onClick={applyQualGuide} disabled={qualAnswers.size === 0}>
+              Show Me Where to Send This →
+            </Button>
+            <button onClick={() => setSkipQual(true)} className="text-xs text-gray-500 underline">
+              Skip — I know where I'm filing
+            </button>
+          </div>
+        </Card>
+      )}
+
+      {qualDone && (
+        <div className="bg-teal bg-opacity-10 border border-teal rounded-xl p-4 flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold text-navy">Destinations selected based on your answers</p>
+            <p className="text-xs text-gray-600 mt-1">
+              {[...selected].map(id => DESTINATIONS.find(d => d.id === id)?.label).filter(Boolean).join(', ')}
+            </p>
+          </div>
+          <button onClick={() => { setQualDone(false); setSkipQual(false); }} className="text-xs text-teal underline shrink-0">Change answers</button>
+        </div>
+      )}
+
       {/* Destination cards */}
+      {(skipQual || qualDone) && (
+      <div>
+        <p className="text-sm font-semibold text-gray-600 mb-3">{qualDone ? 'Review and adjust your destinations:' : 'Select destinations:'}</p>
+      </div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {DESTINATIONS.map(dest => {
           const isDisabled = 'disabled' in dest && dest.disabled;

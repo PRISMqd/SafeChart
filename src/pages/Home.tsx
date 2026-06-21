@@ -55,9 +55,9 @@ const modules = [
   },
   {
     id: 8,
-    title: 'Module 8: Report & Submission',
+    title: 'Module 8: Route & Submit',
     subtitle: 'Routing & Export',
-    description: 'Review your translated professional documentation, download as PDF, and route to applicable regulatory or oversight bodies.',
+    description: 'Review your documentation, download as PDF, and route to applicable regulatory or oversight bodies. Your record is pre-formatted for each destination.',
     path: '/module8',
     icon: '📤',
   },
@@ -143,7 +143,7 @@ export default function Home() {
             <p className="text-xs text-gray-600 mt-1">Saved data: {draftInfo}</p>
           </div>
           <div className="flex gap-2 shrink-0">
-            <Button variant="teal" onClick={() => navigate('/report')}>Resume → Report</Button>
+            <Button variant="teal" onClick={() => navigate('/report')}>Resume → Your Record</Button>
             <Button variant="ghost" onClick={handleClearSession}>Clear Session</Button>
           </div>
         </div>
